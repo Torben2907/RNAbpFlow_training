@@ -12,7 +12,7 @@ from src.models import utils
 class NodeEmbedder(nn.Module):
 
     def __init__(self, module_cfg):
-        super(NodeEmbedder, self).__init__()
+        super().__init__()
         self._cfg = module_cfg
         self.c_s = self._cfg.c_s
         self.c_pos_emb = self._cfg.c_pos_emb

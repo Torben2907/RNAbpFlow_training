@@ -15,6 +15,8 @@ from src.data import data_transforms
 from src.data import utils as du
 from src.data import rigid_utils
 
+from src.data.contacts import make_contact_tokens
+
 NUM_NA_RESIDUE_ATOMS = 23
 
 class PDBNABaseDataset(Dataset):
@@ -230,11 +232,20 @@ class PDBNABaseDataset(Dataset):
         rotmats_1 = rigids_1.get_rots().get_rot_mats()
         trans_1 = rigids_1.get_trans()
 
+        contact_tokens = make_contact_tokens(
+            trans_1, 
+            torch.tensor(processed_feats["bb_mask"]).bool(),
+            distance_threshold=self._data_conf.contact_distance_threshold,
+            min_sequence_separation=self._data_conf.contact_minimum_sequence_separation
+        )
+
         final_feats["rotmats_1"] = rotmats_1
         final_feats["trans_1"] = trans_1
         final_feats["torsion_angles_sin_cos"] = nufeat["torsion_angles_sin_cos"]
 
         final_feats['res_mask'] = torch.tensor(processed_feats['bb_mask']).int()
+
+        final_feats["contact_tokens"] = contact_tokens
 
         """
         Final sample dict keys:

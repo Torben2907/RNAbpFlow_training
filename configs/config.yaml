@@ -13,6 +13,8 @@ data_cfg:
   eval_batch_size: 1
   num_workers: 4
   prefetch_factor: 100
+  contact_distance_threshold: 8.0
+  contact_minimum_sequence_separation: 3
 
 interpolant:
   min_t: 1e-2
