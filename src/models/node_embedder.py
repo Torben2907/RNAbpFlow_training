@@ -6,7 +6,7 @@ https://github.com/microsoft/protein-frame-flow/blob/main/models/node_embedder.p
 """
 
 import torch
-from torch import nn
+from torch import Tensor, nn
 from src.models import utils
 
 class NodeEmbedder(nn.Module):
@@ -17,12 +17,21 @@ class NodeEmbedder(nn.Module):
         self.c_s = self._cfg.c_s
         self.c_pos_emb = self._cfg.c_pos_emb
         self.c_timestep_emb = self._cfg.c_timestep_emb
+        self.token_embedding = nn.Embedding(
+            module_cfg.num_token_states,
+            module_cfg.c_token_emb
+        )
         
         self.linear = nn.Linear(
-            self._cfg.c_pos_emb + self._cfg.c_timestep_emb + 4, self.c_s)
+            self._cfg.c_pos_emb 
+            + self._cfg.c_timestep_emb 
+            + 4
+            + self._cfg.c_token_emb,
+            self.c_s
+        )
         
 
-    def embed_t(self, timesteps, mask):
+    def embed_t(self, timesteps: Tensor, mask: Tensor) -> Tensor:
         timestep_emb = utils.get_time_embedding(
             timesteps[:, 0],
             self.c_timestep_emb,
@@ -30,7 +39,7 @@ class NodeEmbedder(nn.Module):
         )[:, None, :].repeat(1, mask.shape[1], 1)
         return timestep_emb * mask.unsqueeze(-1)
 
-    def forward(self, timesteps, mask, onehot):
+    def forward(self, timesteps: Tensor, mask: Tensor, onehot: Tensor, tokens: Tensor) -> Tensor:
         # s: [b]
 
         b, num_res, device = mask.shape[0], mask.shape[1], mask.device
@@ -45,13 +54,17 @@ class NodeEmbedder(nn.Module):
 
         onehot = onehot.to(device)
         onehot = onehot * mask.unsqueeze(-1)
+
+        token_emb = self.token_embedding(tokens)
+        token_emb = token_emb * mask.unsqueeze(-1)
     
         # [b, n_res, c_timestep_emb]
         
-        input_feats = [pos_emb]
-        input_feats.append(onehot)
-
-        # timesteps are between 0 and 1. Convert to integers.
-        input_feats.append(self.embed_t(timesteps, mask))
+        input_feats = [
+            pos_emb, 
+            onehot, 
+            self.embed_t(timesteps, mask), # timesteps are between 0 and 1. Convert to integers.
+            token_emb
+        ]
         
         return self.linear(torch.cat(input_feats, dim=-1))
