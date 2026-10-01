@@ -6,7 +6,7 @@ https://github.com/microsoft/protein-frame-flow/blob/main/models/flow_model.py
 """
 
 import torch
-from torch import nn
+from torch import Tensor, nn
 
 from src.models.node_embedder import NodeEmbedder
 from src.models.edge_embedder import EdgeEmbedder
@@ -16,7 +16,7 @@ from src.data import utils as du
 class FlowModel(nn.Module):
 
     def __init__(self, model_conf):
-        super(FlowModel, self).__init__()
+        super().__init__()
         self._model_conf = model_conf
         self._ipa_conf = model_conf.ipa
         self.dropout_rate = self._ipa_conf.dropout
@@ -24,6 +24,12 @@ class FlowModel(nn.Module):
         # Replace lambda functions with regular methods
         self.node_embedder = NodeEmbedder(model_conf.node_features)
         self.edge_embedder = EdgeEmbedder(model_conf.edge_features)
+
+        self.token_head = nn.Sequential(
+            nn.Linear(self._ipa_conf.c_s, self._ipa_conf.c_s),
+            nn.ReLU(),
+            nn.Linear(self._ipa_conf.c_s, 2)
+        )
 
         # Attention trunk
         self.trunk = nn.ModuleDict()
@@ -69,12 +75,13 @@ class FlowModel(nn.Module):
     def rigids_nm_to_ang(self, x):
         return x.apply_trans_fn(lambda x: x * du.NM_TO_ANG_SCALE)
 
-    def forward(self, input_feats):
+    def forward(self, input_feats: Tensor) -> Tensor:
         node_mask = input_feats['res_mask']
         edge_mask = node_mask[:, None] * node_mask[:, :, None]
         continuous_t = input_feats['t']
         trans_t = input_feats['trans_t']
         rotmats_t = input_feats['rotmats_t']
+        contact_tokens = input_feats['contact_tokens']
         
         if "ss_pred" in input_feats:
             ss = input_feats['ss_pred']
@@ -90,7 +97,7 @@ class FlowModel(nn.Module):
         # Convert random timestapmp to embedding; Lx128
         # Total 1xLx256
         #     
-        init_node_embed = self.node_embedder(continuous_t, node_mask, onehot) 
+        init_node_embed = self.node_embedder(continuous_t, node_mask, onehot, contact_tokens) 
         if 'trans_sc' not in input_feats:
             trans_sc = torch.zeros_like(trans_t)
         else:
@@ -137,11 +144,14 @@ class FlowModel(nn.Module):
         curr_rigids = self.rigids_nm_to_ang(curr_rigids)
         pred_trans = curr_rigids.get_trans()
         pred_rotmats = curr_rigids.get_rots().get_rot_mats()
+
+        token_logits = self.token_head(node_embed)
         
         return {
             'pred_torsions': pred_torsions,
             'pred_trans': pred_trans,
             'pred_rotmats': pred_rotmats,
             'pair_feat': pair_feat,
+            'token_logits': token_logits,
             'bb_frame': curr_rigids,
         }
