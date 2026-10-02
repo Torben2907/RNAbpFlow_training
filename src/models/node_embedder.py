@@ -8,6 +8,7 @@ https://github.com/microsoft/protein-frame-flow/blob/main/models/node_embedder.p
 import torch
 from torch import Tensor, nn
 from src.models import utils
+from src.data.contacts import NUM_TOKEN_STATES
 
 class NodeEmbedder(nn.Module):
 
@@ -18,7 +19,7 @@ class NodeEmbedder(nn.Module):
         self.c_pos_emb = self._cfg.c_pos_emb
         self.c_timestep_emb = self._cfg.c_timestep_emb
         self.token_embedding = nn.Embedding(
-            module_cfg.num_token_states,
+            NUM_TOKEN_STATES,
             module_cfg.c_token_emb
         )
         
@@ -64,7 +65,7 @@ class NodeEmbedder(nn.Module):
             pos_emb, 
             onehot, 
             self.embed_t(timesteps, mask), # timesteps are between 0 and 1. Convert to integers.
-            token_emb
+            token_emb,
         ]
         
         return self.linear(torch.cat(input_feats, dim=-1))

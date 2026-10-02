@@ -6,6 +6,8 @@ CONTACT = 1
 NO_CONTACT = 0
 MASK = 2
 
+NUM_TOKEN_STATES = 3
+
 
 def make_contact_tokens(
     c1_positions: Tensor,
@@ -42,7 +44,7 @@ def random_mask_tokens(
     tokens: Tensor, res_mask: Tensor, mask_probability: float = 0.15
 ) -> tuple[Tensor, Tensor]:
     random_mask = (
-        torch.randn_like(tokens.float()) < mask_probability
+        torch.rand_like(tokens.float()) < mask_probability
     ) & res_mask.bool()
 
     masked_tokens = tokens.clone()
