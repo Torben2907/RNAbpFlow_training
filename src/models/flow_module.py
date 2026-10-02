@@ -21,6 +21,7 @@ from src.data import all_atom as rna_all_atom
 from src.data import so3_utils
 import torch.nn.functional as F
 from src.data.rigid_utils import Rigid,Rotation
+from src.data.contacts import random_mask_tokens
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -67,6 +68,16 @@ class FlowModule(LightningModule):
         training_cfg = self._exp_cfg.training
         loss_mask = noisy_batch['res_mask']
         is_na_residue_mask = noisy_batch["is_na_residue_mask"]
+        tokens = noisy_batch["contact_tokens"]
+
+        masked_tokens, token_mask = random_mask_tokens(
+            tokens, 
+            noisy_batch['res_mask'],
+            mask_probability=self._exp_cfg.training.token_mask_probability,
+        )
+
+        noisy_batch["contact_tokens"] = masked_tokens
+        noisy_batch["token_mask"] = token_mask
         
         if training_cfg.min_plddt_mask is not None:
             plddt_mask = noisy_batch['res_plddt'] > training_cfg.min_plddt_mask
@@ -104,6 +115,7 @@ class FlowModule(LightningModule):
         pred_trans_1 = model_output['pred_trans']
         pred_rotmats_1 = model_output['pred_rotmats']
         pred_torsions_1 = model_output['pred_torsions'].reshape(num_batch, num_res, num_torsions * 2)
+        token_logits = model_output['token_logits']
         pred_rots_vf = so3_utils.calc_rot_vf(rotmats_t, pred_rotmats_1)
 
         pred_bb_atoms_all = rna_all_atom.to_atom23_rna(
@@ -131,6 +143,12 @@ class FlowModule(LightningModule):
             rots_vf_error ** 2 * loss_mask[..., None],
             dim=(-1, -2)
         ) / loss_denom
+
+        # Token loss 
+        token_loss = F.cross_entropy(
+            token_logits[token_mask],
+            tokens[token_mask],
+        )
 
         gt_flat_atoms = gt_bb_atoms2.reshape([num_batch, num_res, 3]) 
         gt_pair_dists = torch.linalg.norm(gt_flat_atoms[:, :, None, :] - gt_flat_atoms[:, None, :, :], dim=-1)
@@ -194,7 +212,8 @@ class FlowModule(LightningModule):
             "auxiliary_loss": auxiliary_loss,
             "rots_vf_loss": rots_vf_loss,
             "se3_vf_loss": se3_vf_loss,
-            "torsion_loss": tors_loss
+            "torsion_loss": tors_loss,
+            "token_loss": token_loss
         }
         
     def validation_step(self, batch, batch_idx):
@@ -326,8 +345,9 @@ class FlowModule(LightningModule):
         #self._log_scalar("train/eps", num_batch / step_time)
         
         train_loss = (
-            total_losses[self._exp_cfg.training.loss] +
-            total_losses['auxiliary_loss']
+            total_losses[self._exp_cfg.training.loss]
+            + total_losses['auxiliary_loss']
+            + self._exp_cfg.training.token_loss_weight * total_losses['token_loss']
         )
         self._log_scalar("loss", train_loss, batch_size=num_batch)
 
