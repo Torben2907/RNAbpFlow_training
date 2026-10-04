@@ -5,24 +5,23 @@ Code adapted from
 https://github.com/microsoft/protein-frame-flow/blob/main/models/flow_model.py
 """
 
-from rnabpflow.config.hydra_schema import ModelConfig
-from rnabpflow.models import ipa_pytorch
 import torch
 from torch import Tensor, nn
 
-from rnabpflow.models.node_embedder import NodeEmbedder
-from rnabpflow.models.edge_embedder import EdgeEmbedder
-from rnabpflow.models import torsion_net
+from rnabpflow.config.hydra_schema import ModelConfig
 from rnabpflow.data import utils as du
+from rnabpflow.models import ipa_pytorch, torsion_net
+from rnabpflow.models.edge_embedder import EdgeEmbedder
+from rnabpflow.models.node_embedder import NodeEmbedder
+
 
 class FlowModel(nn.Module):
-
     def __init__(self, model_conf: ModelConfig):
         super().__init__()
         self._model_conf = model_conf
         self._ipa_conf = model_conf.ipa
         self.dropout_rate = self._ipa_conf.dropout
-        
+
         # Replace lambda functions with regular methods
         self.node_embedder = NodeEmbedder(model_conf.node_features)
         self.edge_embedder = EdgeEmbedder(model_conf.edge_features)
@@ -30,14 +29,14 @@ class FlowModel(nn.Module):
         self.token_head = nn.Sequential(
             nn.Linear(self._ipa_conf.c_s, self._ipa_conf.c_s),
             nn.ReLU(),
-            nn.Linear(self._ipa_conf.c_s, 2)
+            nn.Linear(self._ipa_conf.c_s, 2),
         )
 
         # Attention trunk
         self.trunk = nn.ModuleDict()
         for b in range(self._ipa_conf.num_blocks):
-            self.trunk[f'ipa_{b}'] = ipa_pytorch.InvariantPointAttention(self._ipa_conf)
-            self.trunk[f'ipa_ln_{b}'] = nn.LayerNorm(self._ipa_conf.c_s)
+            self.trunk[f"ipa_{b}"] = ipa_pytorch.InvariantPointAttention(self._ipa_conf)
+            self.trunk[f"ipa_ln_{b}"] = nn.LayerNorm(self._ipa_conf.c_s)
             tfmr_in = self._ipa_conf.c_s
             tfmr_layer = torch.nn.TransformerEncoderLayer(
                 d_model=tfmr_in,
@@ -45,30 +44,44 @@ class FlowModel(nn.Module):
                 dim_feedforward=tfmr_in,
                 batch_first=True,
                 dropout=self.dropout_rate,
-                norm_first=False
+                norm_first=False,
             )
 
-            self.trunk[f'seq_tfmr_{b}'] = torch.nn.TransformerEncoder(
-                tfmr_layer, self._ipa_conf.seq_tfmr_num_layers, enable_nested_tensor=False)
-            self.trunk[f'post_tfmr_{b}'] = ipa_pytorch.Linear(
-                tfmr_in, self._ipa_conf.c_s, init="final")
-            self.trunk[f'node_transition_{b}'] = ipa_pytorch.StructureModuleTransition(
-                c=self._ipa_conf.c_s)
-            self.trunk[f'bb_update_{b}'] = ipa_pytorch.BackboneUpdate(
-                self._ipa_conf.c_s, use_rot_updates=True)
+            self.trunk[f"seq_tfmr_{b}"] = torch.nn.TransformerEncoder(
+                tfmr_layer,
+                self._ipa_conf.seq_tfmr_num_layers,
+                enable_nested_tensor=False,
+            )
+            self.trunk[f"post_tfmr_{b}"] = ipa_pytorch.Linear(
+                tfmr_in, self._ipa_conf.c_s, init="final"
+            )
+            self.trunk[f"node_transition_{b}"] = ipa_pytorch.StructureModuleTransition(
+                c=self._ipa_conf.c_s
+            )
+            self.trunk[f"bb_update_{b}"] = ipa_pytorch.BackboneUpdate(
+                self._ipa_conf.c_s, use_rot_updates=True
+            )
 
-            if b < self._ipa_conf.num_blocks-1:
+            if b < self._ipa_conf.num_blocks - 1:
                 # No edge update on the last block.
                 edge_in = self._model_conf.edge_embed_size
-                self.trunk[f'edge_transition_{b}'] = ipa_pytorch.EdgeTransition(
+                self.trunk[f"edge_transition_{b}"] = ipa_pytorch.EdgeTransition(
                     node_embed_size=self._ipa_conf.c_s,
                     edge_embed_in=edge_in,
                     edge_embed_out=self._model_conf.edge_embed_size,
                 )
 
         # hparams taken from OpenFold's config.py
-        self.angle_pred_net = torsion_net.TorsionAngleHead(c_in=self._ipa_conf.c_s, c_hidden=128, no_blocks=2, no_angles=9, epsilon=1e-12)
-        self.linear_pair = nn.Linear(self._model_conf.edge_embed_size, self._ipa_conf.ss)
+        self.angle_pred_net = torsion_net.TorsionAngleHead(
+            c_in=self._ipa_conf.c_s,
+            c_hidden=128,
+            no_blocks=2,
+            no_angles=9,
+            epsilon=1e-12,
+        )
+        self.linear_pair = nn.Linear(
+            self._model_conf.edge_embed_size, self._ipa_conf.ss
+        )
         self.ipa_dropout = nn.Dropout(self.dropout_rate)
 
     def rigids_ang_to_nm(self, x):
@@ -78,39 +91,45 @@ class FlowModel(nn.Module):
         return x.apply_trans_fn(lambda x: x * du.NM_TO_ANG_SCALE)
 
     def forward(self, input_feats: Tensor) -> Tensor:
-        node_mask = input_feats['res_mask']
+        node_mask = input_feats["res_mask"]
         edge_mask = node_mask[:, None] * node_mask[:, :, None]
-        continuous_t = input_feats['t']
-        trans_t = input_feats['trans_t']
-        rotmats_t = input_feats['rotmats_t']
-        contact_tokens = input_feats['contact_tokens']
-        
-        if "ss_pred" in input_feats:
-            ss = input_feats['ss_pred']
-        else:
-            ss = input_feats['ss']
+        continuous_t = input_feats["t"]
+        trans_t = input_feats["trans_t"]
+        rotmats_t = input_feats["rotmats_t"]
+        contact_tokens = input_feats["contact_tokens"]
 
-        onehot = input_feats['onehot']
-        
+        if "ss_pred" in input_feats:
+            ss = input_feats["ss_pred"]
+        else:
+            ss = input_feats["ss"]
+
+        onehot = input_feats["onehot"]
 
         # Initialize node and edge embeddings
-        
-        #sin-cos positional embedding - Lx128
+
+        # sin-cos positional embedding - Lx128
         # Convert random timestapmp to embedding; Lx128
         # Total 1xLx256
-        #     
-        init_node_embed = self.node_embedder(continuous_t, node_mask, onehot, contact_tokens) 
-        if 'trans_sc' not in input_feats:
+        #
+        init_node_embed = self.node_embedder(
+            continuous_t, node_mask, onehot, contact_tokens
+        )
+        if "trans_sc" not in input_feats:
             trans_sc = torch.zeros_like(trans_t)
         else:
-            trans_sc = input_feats['trans_sc']
-        
-        #Edge embeddings are: 
+            trans_sc = input_feats["trans_sc"]
+
+        # Edge embeddings are:
         #
-        init_edge_embed = self.edge_embedder(init_node_embed, trans_t, trans_sc, edge_mask, ss)
+        init_edge_embed = self.edge_embedder(
+            init_node_embed, trans_t, trans_sc, edge_mask, ss
+        )
 
         # Initial rigids
-        curr_rigids = du.create_rigid(rotmats_t, trans_t,)
+        curr_rigids = du.create_rigid(
+            rotmats_t,
+            trans_t,
+        )
 
         # Main trunk
         curr_rigids = self.rigids_ang_to_nm(curr_rigids)
@@ -119,23 +138,27 @@ class FlowModel(nn.Module):
         edge_embed = init_edge_embed * edge_mask[..., None]
 
         for b in range(self._ipa_conf.num_blocks):
-            ipa_embed = self.trunk[f'ipa_{b}'](
-                node_embed,
-                edge_embed,
-                curr_rigids,
-                node_mask)
+            ipa_embed = self.trunk[f"ipa_{b}"](
+                node_embed, edge_embed, curr_rigids, node_mask
+            )
             ipa_embed *= node_mask[..., None]
-            node_embed = self.trunk[f'ipa_ln_{b}'](node_embed + ipa_embed)
-            seq_tfmr_out = self.trunk[f'seq_tfmr_{b}'](node_embed, src_key_padding_mask=(1 - node_mask).bool())
-            node_embed = node_embed + self.trunk[f'post_tfmr_{b}'](seq_tfmr_out)
+            node_embed = self.trunk[f"ipa_ln_{b}"](node_embed + ipa_embed)
+            seq_tfmr_out = self.trunk[f"seq_tfmr_{b}"](
+                node_embed, src_key_padding_mask=(1 - node_mask).bool()
+            )
+            node_embed = node_embed + self.trunk[f"post_tfmr_{b}"](seq_tfmr_out)
             node_embed = self.ipa_dropout(node_embed)
-            node_embed = self.trunk[f'node_transition_{b}'](node_embed)
+            node_embed = self.trunk[f"node_transition_{b}"](node_embed)
             node_embed = node_embed * node_mask[..., None]
-            rigid_update = self.trunk[f'bb_update_{b}'](node_embed * node_mask[..., None])
-            curr_rigids = curr_rigids.compose_q_update_vec(rigid_update, node_mask[..., None])
+            rigid_update = self.trunk[f"bb_update_{b}"](
+                node_embed * node_mask[..., None]
+            )
+            curr_rigids = curr_rigids.compose_q_update_vec(
+                rigid_update, node_mask[..., None]
+            )
 
-            if b < self._ipa_conf.num_blocks-1:
-                edge_embed = self.trunk[f'edge_transition_{b}'](node_embed, edge_embed)
+            if b < self._ipa_conf.num_blocks - 1:
+                edge_embed = self.trunk[f"edge_transition_{b}"](node_embed, edge_embed)
                 edge_embed = self.ipa_dropout(edge_embed)
                 edge_embed *= edge_mask[..., None]
 
@@ -148,12 +171,12 @@ class FlowModel(nn.Module):
         pred_rotmats = curr_rigids.get_rots().get_rot_mats()
 
         token_logits = self.token_head(node_embed)
-        
+
         return {
-            'pred_torsions': pred_torsions,
-            'pred_trans': pred_trans,
-            'pred_rotmats': pred_rotmats,
-            'pair_feat': pair_feat,
-            'token_logits': token_logits,
-            'bb_frame': curr_rigids,
+            "pred_torsions": pred_torsions,
+            "pred_trans": pred_trans,
+            "pred_rotmats": pred_rotmats,
+            "pair_feat": pair_feat,
+            "token_logits": token_logits,
+            "bb_frame": curr_rigids,
         }

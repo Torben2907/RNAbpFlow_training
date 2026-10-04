@@ -4,8 +4,8 @@
 
 import collections
 import functools
+from collections.abc import Mapping
 from importlib import resources
-from typing import List, Mapping, Tuple
 
 import numpy as np
 
@@ -171,7 +171,11 @@ chi_pi_periodic = {
 rigid_group_atom_positions = {
     "A": [
         ["C3'", 0, (-0.378, 1.475, 0.00)],
-        ["C4'", 0, (1e-6, 0.000, 0.000)],  # note: using `1e-6` for visualization purposes
+        [
+            "C4'",
+            0,
+            (1e-6, 0.000, 0.000),
+        ],  # note: using `1e-6` for visualization purposes
         ["O4'", 0, (1.450, -0.00, 0.000)],
         ["C5'", 0, (-0.508, -0.803, -1.174)],
         ["C2'", 1, (0.4258, 1.4607, 0.00)],
@@ -554,14 +558,12 @@ BondAngle = collections.namedtuple(
 )
 
 
-@functools.lru_cache(maxsize=None)
-def load_stereo_chemical_props() -> (
-    Tuple[
-        Mapping[str, List[Bond]],
-        Mapping[str, List[Bond]],
-        Mapping[str, List[BondAngle]],
-    ]
-):
+@functools.cache
+def load_stereo_chemical_props() -> tuple[
+    Mapping[str, list[Bond]],
+    Mapping[str, list[Bond]],
+    Mapping[str, list[BondAngle]],
+]:
     """Load stereo_chemical_props.txt into a nice structure.
 
     Load literature values for bond lengths and bond angles and translate
@@ -668,16 +670,16 @@ between_res_cos_angles_c2_c3_c4 = [-0.2126, 0.9996]  # degrees: 102.277 +- 1.685
 # This mapping is used when we need to store atom data in a format that requires
 # fixed atom data size for every residue (e.g. a numpy array).
 atom_types = [
-    "C1'", # 0
-    "C2'", # 1
-    "C3'", # 2 <-
-    "C4'", # 3 <-
-    "C5'", # 4
-    "O5'", # 5
-    "O4'", # 6 <-
-    "O3'", # 7
-    "O2'", # 8
-    "P",   # 0
+    "C1'",  # 0
+    "C2'",  # 1
+    "C3'",  # 2 <-
+    "C4'",  # 3 <-
+    "C5'",  # 4
+    "O5'",  # 5
+    "O4'",  # 6 <-
+    "O3'",  # 7
+    "O2'",  # 8
+    "P",  # 0
     "OP1",
     "OP2",
     "N1",
@@ -934,7 +936,8 @@ restype_name_atom_num = {
 }
 
 restype_name_to_full_atom_names = {
-    restype_name: atom_types for restype_name in list(restype_name_to_compact_atom_names.keys())
+    restype_name: atom_types
+    for restype_name in list(restype_name_to_compact_atom_names.keys())
 }
 
 # This is the standard residue order when coding AA type as a number.
@@ -986,7 +989,9 @@ def chi_angle_atom(atom_index: int) -> np.ndarray:
         one_hot = np.eye(atom_type_num)[chi_angles_index[r]]
         one_hots.append(one_hot)
 
-    one_hots.append(np.zeros([NUM_NA_TORSIONS, atom_type_num]))  # Add zeros for residue `X`.
+    one_hots.append(
+        np.zeros([NUM_NA_TORSIONS, atom_type_num])
+    )  # Add zeros for residue `X`.
     one_hot = np.stack(one_hots, axis=0)
     one_hot = np.transpose(one_hot, [0, 2, 1])
 
@@ -1044,7 +1049,9 @@ def _make_rigid_group_constants():
             atom23idx = restype_name_to_compact_atom_names[ntname].index(atomname)
             nttype_compact_atom_to_rigid_group[nttype, atom23idx] = group_idx
             nttype_compact_atom_mask[nttype, atom23idx] = 1
-            nttype_compact_atom_rigid_group_positions[nttype, atom23idx, :] = atom_position
+            nttype_compact_atom_rigid_group_positions[nttype, atom23idx, :] = (
+                atom_position
+            )
 
     for nttype, nttype_letter in enumerate(restypes):
         # resname = restype_1to3[restype_letter]
@@ -1169,7 +1176,9 @@ def _make_rigid_group_constants():
 _make_rigid_group_constants()
 
 
-def make_compact_atom_dists_bounds(overlap_tolerance=1.5, bond_length_tolerance_factor=15):
+def make_compact_atom_dists_bounds(
+    overlap_tolerance=1.5, bond_length_tolerance_factor=15
+):
     """Compute upper and lower bounds for bonds to assess violations."""
     restype_compact_atom_bond_lower_bound = np.zeros([9, 23, 23], np.float32)
     restype_compact_atom_bond_upper_bound = np.zeros([9, 23, 23], np.float32)
@@ -1191,10 +1200,18 @@ def make_compact_atom_dists_bounds(overlap_tolerance=1.5, bond_length_tolerance_
                 atom2_radius = van_der_waals_radius[atom2_name[0]]
                 lower = atom1_radius + atom2_radius - overlap_tolerance
                 upper = 1e10
-                restype_compact_atom_bond_lower_bound[restype, atom1_idx, atom2_idx] = lower
-                restype_compact_atom_bond_lower_bound[restype, atom2_idx, atom1_idx] = lower
-                restype_compact_atom_bond_upper_bound[restype, atom1_idx, atom2_idx] = upper
-                restype_compact_atom_bond_upper_bound[restype, atom2_idx, atom1_idx] = upper
+                restype_compact_atom_bond_lower_bound[restype, atom1_idx, atom2_idx] = (
+                    lower
+                )
+                restype_compact_atom_bond_lower_bound[restype, atom2_idx, atom1_idx] = (
+                    lower
+                )
+                restype_compact_atom_bond_upper_bound[restype, atom1_idx, atom2_idx] = (
+                    upper
+                )
+                restype_compact_atom_bond_upper_bound[restype, atom2_idx, atom1_idx] = (
+                    upper
+                )
 
         # overwrite lower and upper bounds for bonds and angles
         for b in residue_bonds[resname] + residue_virtual_bonds[resname]:

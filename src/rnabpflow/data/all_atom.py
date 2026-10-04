@@ -13,32 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 import torch
-import torch.nn as nn
-from typing import Optional, Tuple
 
 from rnabpflow.data.base_constants import (
-    restype_rigid_group_default_frame,
-    restype_atom23_to_rigid_group,
     restype_atom23_mask,
     restype_atom23_rigid_group_positions,
+    restype_atom23_to_rigid_group,
+    restype_rigid_group_default_frame,
 )
-
 from rnabpflow.data.feats import (
     frames_and_literature_positions_to_atom23_pos,
     torsion_angles_to_frames,
 )
+from rnabpflow.data.rigid_utils import Rigid, Rotation
 
-from rnabpflow.data.rigid_utils import Rotation, Rigid
 
 def to_atom23_rna(trans, rots, aatype, torsions=None):
 
     backb_to_global = Rigid(
-        Rotation(
-            rot_mats=rots,
-            quats=None
-        ),
+        Rotation(rot_mats=rots, quats=None),
         trans,
     )
 
@@ -59,28 +52,29 @@ def to_atom23_rna(trans, rots, aatype, torsions=None):
 
     return pred_xyz
 
+
 def _init_residue_constants(float_dtype, device):
-    
+
     default_frames = torch.tensor(
         restype_rigid_group_default_frame,
         dtype=float_dtype,
         device=device,
         requires_grad=False,
     )
-    
+
     group_idx = torch.tensor(
         restype_atom23_to_rigid_group,
         device=device,
         requires_grad=False,
     )
-    
+
     atom_mask = torch.tensor(
         restype_atom23_mask,
         dtype=float_dtype,
         device=device,
         requires_grad=False,
     )
-    
+
     lit_positions = torch.tensor(
         restype_atom23_rigid_group_positions,
         dtype=float_dtype,
@@ -90,8 +84,9 @@ def _init_residue_constants(float_dtype, device):
 
     return default_frames, group_idx, atom_mask, lit_positions
 
+
 def _init_residue_constants2(float_dtype, device):
-    
+
     default_frames = torch.tensor(
         restype_rigid_group_default_frame,
         dtype=float_dtype,
@@ -101,17 +96,22 @@ def _init_residue_constants2(float_dtype, device):
 
     return default_frames
 
+
 def nu_torsion_angles_to_frames(r, alpha, f):
-    
+
     default_frames = _init_residue_constants2(alpha.dtype, alpha.device)
-    
+
     return torsion_angles_to_frames(r, alpha, f, default_frames)
 
+
 def nu_frames_and_literature_positions_to_atom23_pos(
-    r, f  # [*, N, 8]  # [*, N]
+    r,
+    f,  # [*, N, 8]  # [*, N]
 ):
-    default_frames, group_idx, atom_mask, lit_positions = _init_residue_constants(r.get_rots().dtype, r.get_rots().device)
-    
+    default_frames, group_idx, atom_mask, lit_positions = _init_residue_constants(
+        r.get_rots().dtype, r.get_rots().device
+    )
+
     return frames_and_literature_positions_to_atom23_pos(
         r,
         f,

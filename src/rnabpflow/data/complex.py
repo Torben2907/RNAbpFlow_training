@@ -2,13 +2,13 @@
 # Following code curated for (https://github.com/Profluent-Internships/MMDiff):
 # -------------------------------------------------------------------------------------------------------------------------------------
 """Complex data type."""
+
 import dataclasses
 
 import numpy as np
 from beartype.typing import Any, Mapping
-from rnabpflow.data import complex_constants, nucleotide_constants
 
-from rnabpflow.data import protein_constants
+from rnabpflow.data import complex_constants, nucleotide_constants, protein_constants
 
 FeatureDict = Mapping[str, np.ndarray]
 ModelOutput = Mapping[str, Any]  # Is a nested dict.
@@ -60,7 +60,10 @@ class Complex:
                 "because these cannot be written to PDB format."
             )
 
-def complex_to_pdb(complex: Complex, model=1, add_end=True, molecule_type_to_write=-1) -> str:
+
+def complex_to_pdb(
+    complex: Complex, model=1, add_end=True, molecule_type_to_write=-1
+) -> str:
     """Converts a `Complex` instance to a PDB string.
 
     Args:
@@ -79,7 +82,9 @@ def complex_to_pdb(complex: Complex, model=1, add_end=True, molecule_type_to_wri
     Returns:
       PDB string.
     """
-    restype_name_to_full_atom_names = protein_constants.restype_name_to_full_atom_names.copy()
+    restype_name_to_full_atom_names = (
+        protein_constants.restype_name_to_full_atom_names.copy()
+    )
     restype_name_to_full_atom_names.update(
         nucleotide_constants.restype_name_to_full_atom_names.copy()
     )
@@ -101,7 +106,9 @@ def complex_to_pdb(complex: Complex, model=1, add_end=True, molecule_type_to_wri
     chain_ids = {}
     for i in np.unique(chain_index):  # np.unique gives sorted output.
         if i >= PDB_MAX_CHAINS:
-            raise ValueError(f"The PDB format supports at most {PDB_MAX_CHAINS} chains.")
+            raise ValueError(
+                f"The PDB format supports at most {PDB_MAX_CHAINS} chains."
+            )
         chain_ids[i] = PDB_CHAIN_IDS[i]
 
     pdb_lines.append(f"MODEL     {model}")
@@ -135,8 +142,8 @@ def complex_to_pdb(complex: Complex, model=1, add_end=True, molecule_type_to_wri
             end_chain_id = chain_ids[last_chain_index]
             end_res_idx = residue_index[i] - 1
             chain_end_line = (
-                f"{chain_end:<6}{str(atom_index):>5}      {end_resname:>3} "
-                f"{end_chain_id:>1}{str(end_res_idx):>4}"
+                f"{chain_end:<6}{atom_index!s:>5}      {end_resname:>3} "
+                f"{end_chain_id:>1}{end_res_idx!s:>4}"
             )
             pdb_lines.append(chain_end_line)
             atom_index += 1  # Atom index increases at the TER symbol.
@@ -153,13 +160,15 @@ def complex_to_pdb(complex: Complex, model=1, add_end=True, molecule_type_to_wri
             alt_loc = ""
             insertion_code = ""
             occupancy = 1.00
-            element = atom_name[0]  # Proteins support only C, N, O, and S atoms, so this works.
+            element = atom_name[
+                0
+            ]  # Proteins support only C, N, O, and S atoms, so this works.
             charge = ""
             # PDB is a columnar format, every space matters here!
             atom_line = (
-                f"{record_type:<6}{str(atom_index):>5} {name:<4}{alt_loc:>1}"
+                f"{record_type:<6}{atom_index!s:>5} {name:<4}{alt_loc:>1}"
                 f"{res_name_3:>3} {chain_ids[current_chain_index]:>1}"
-                f"{str(residue_index[i]):>4}{insertion_code:>1}   "
+                f"{residue_index[i]!s:>4}{insertion_code:>1}   "
                 f"{pos[0]:>8.3f}{pos[1]:>8.3f}{pos[2]:>8.3f}"
                 f"{occupancy:>6.2f}{b_factor:>6.2f}          "
                 f"{element:>2}{charge:>2}"
@@ -178,8 +187,8 @@ def complex_to_pdb(complex: Complex, model=1, add_end=True, molecule_type_to_wri
     end_chain_id = chain_ids[last_chain_index]
     end_res_idx = residue_index[i]
     chain_end_line = (
-        f"{chain_end:<6}{str(atom_index):>5}      {end_resname:>3} "
-        f"{end_chain_id:>1}{str(end_res_idx):>4}"
+        f"{chain_end:<6}{atom_index!s:>5}      {end_resname:>3} "
+        f"{end_chain_id:>1}{end_res_idx!s:>4}"
     )
     pdb_lines.append(chain_end_line)
     pdb_lines.append("ENDMDL")

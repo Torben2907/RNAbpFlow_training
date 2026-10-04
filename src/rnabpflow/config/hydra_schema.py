@@ -183,7 +183,7 @@ class ExperimentConfig:
 
 
 @dataclass
-class HydraConfig: 
+class HydraConfig:
     data_cfg: DataConfig = MISSING
     interpolant: InterpolantConfig = MISSING
     model: ModelConfig = MISSING

@@ -46,8 +46,16 @@ chi_angles_atoms = {
     "ASN": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "OD1"]],
     "ASP": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "OD1"]],
     "CYS": [["N", "CA", "CB", "SG"]],
-    "GLN": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"], ["CB", "CG", "CD", "OE1"]],
-    "GLU": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"], ["CB", "CG", "CD", "OE1"]],
+    "GLN": [
+        ["N", "CA", "CB", "CG"],
+        ["CA", "CB", "CG", "CD"],
+        ["CB", "CG", "CD", "OE1"],
+    ],
+    "GLU": [
+        ["N", "CA", "CB", "CG"],
+        ["CA", "CB", "CG", "CD"],
+        ["CB", "CG", "CD", "OE1"],
+    ],
     "GLY": [],
     "HIS": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "ND1"]],
     "ILE": [["N", "CA", "CB", "CG1"], ["CA", "CB", "CG1", "CD1"]],
@@ -58,7 +66,11 @@ chi_angles_atoms = {
         ["CB", "CG", "CD", "CE"],
         ["CG", "CD", "CE", "NZ"],
     ],
-    "MET": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "SD"], ["CB", "CG", "SD", "CE"]],
+    "MET": [
+        ["N", "CA", "CB", "CG"],
+        ["CA", "CB", "CG", "SD"],
+        ["CB", "CG", "SD", "CE"],
+    ],
     "PHE": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
     "PRO": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"]],
     "SER": [["N", "CA", "CB", "OG"]],
@@ -94,7 +106,8 @@ chi_angles_mask = {
     "UNK": [0.0, 0.0, 0.0, 0.0],  # UNK
 }
 chi_angles_mask_list = [
-    chi_angles_mask[vocabulary.restype_1to3[rtype]] for rtype in vocabulary.protein_restypes_with_x
+    chi_angles_mask[vocabulary.restype_1to3[rtype]]
+    for rtype in vocabulary.protein_restypes_with_x
 ]
 
 # The following chi angles are pi periodic: they can be rotated by a multiple
@@ -123,7 +136,8 @@ chi_pi_periodic = {
     "UNK": [0.0, 0.0, 0.0, 0.0],  # UNK
 }
 chi_pi_periodic_list = [
-    chi_pi_periodic[vocabulary.restype_1to3[rtype]] for rtype in vocabulary.protein_restypes_with_x
+    chi_pi_periodic[vocabulary.restype_1to3[rtype]]
+    for rtype in vocabulary.protein_restypes_with_x
 ]
 
 # Atoms positions relative to the 8 rigid groups, defined by the pre-omega, phi,
@@ -415,10 +429,10 @@ BondAngle = collections.namedtuple(
 )
 
 
-@functools.lru_cache(maxsize=None)
-def load_stereo_chemical_props() -> (
-    Tuple[Mapping[str, List[Bond]], Mapping[str, List[Bond]], Mapping[str, List[BondAngle]]]
-):
+@functools.cache
+def load_stereo_chemical_props() -> Tuple[
+    Mapping[str, List[Bond]], Mapping[str, List[Bond]], Mapping[str, List[BondAngle]]
+]:
     """Load stereo_chemical_props.txt into a nice structure.
 
     Load literature values for bond lengths and bond angles and translate
@@ -569,19 +583,64 @@ atom_type_num = len(atom_types)  # := 37.
 # A compact atom encoding with 14 columns
 restype_name_to_compact_atom_names = {
     "ALA": ["N", "CA", "C", "O", "CB", "", "", "", "", "", "", "", "", ""],
-    "ARG": ["N", "CA", "C", "O", "CB", "CG", "CD", "NE", "CZ", "NH1", "NH2", "", "", ""],
+    "ARG": [
+        "N",
+        "CA",
+        "C",
+        "O",
+        "CB",
+        "CG",
+        "CD",
+        "NE",
+        "CZ",
+        "NH1",
+        "NH2",
+        "",
+        "",
+        "",
+    ],
     "ASN": ["N", "CA", "C", "O", "CB", "CG", "OD1", "ND2", "", "", "", "", "", ""],
     "ASP": ["N", "CA", "C", "O", "CB", "CG", "OD1", "OD2", "", "", "", "", "", ""],
     "CYS": ["N", "CA", "C", "O", "CB", "SG", "", "", "", "", "", "", "", ""],
     "GLN": ["N", "CA", "C", "O", "CB", "CG", "CD", "OE1", "NE2", "", "", "", "", ""],
     "GLU": ["N", "CA", "C", "O", "CB", "CG", "CD", "OE1", "OE2", "", "", "", "", ""],
     "GLY": ["N", "CA", "C", "O", "", "", "", "", "", "", "", "", "", ""],
-    "HIS": ["N", "CA", "C", "O", "CB", "CG", "ND1", "CD2", "CE1", "NE2", "", "", "", ""],
+    "HIS": [
+        "N",
+        "CA",
+        "C",
+        "O",
+        "CB",
+        "CG",
+        "ND1",
+        "CD2",
+        "CE1",
+        "NE2",
+        "",
+        "",
+        "",
+        "",
+    ],
     "ILE": ["N", "CA", "C", "O", "CB", "CG1", "CG2", "CD1", "", "", "", "", "", ""],
     "LEU": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "", "", "", "", "", ""],
     "LYS": ["N", "CA", "C", "O", "CB", "CG", "CD", "CE", "NZ", "", "", "", "", ""],
     "MET": ["N", "CA", "C", "O", "CB", "CG", "SD", "CE", "", "", "", "", "", ""],
-    "PHE": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "", "", ""],
+    "PHE": [
+        "N",
+        "CA",
+        "C",
+        "O",
+        "CB",
+        "CG",
+        "CD1",
+        "CD2",
+        "CE1",
+        "CE2",
+        "CZ",
+        "",
+        "",
+        "",
+    ],
     "PRO": ["N", "CA", "C", "O", "CB", "CG", "CD", "", "", "", "", "", "", ""],
     "SER": ["N", "CA", "C", "O", "CB", "OG", "", "", "", "", "", "", "", ""],
     "THR": ["N", "CA", "C", "O", "CB", "OG1", "CG2", "", "", "", "", "", "", ""],
@@ -601,7 +660,22 @@ restype_name_to_compact_atom_names = {
         "CZ3",
         "CH2",
     ],
-    "TYR": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH", "", ""],
+    "TYR": [
+        "N",
+        "CA",
+        "C",
+        "O",
+        "CB",
+        "CG",
+        "CD1",
+        "CD2",
+        "CE1",
+        "CE2",
+        "CZ",
+        "OH",
+        "",
+        "",
+    ],
     "VAL": ["N", "CA", "C", "O", "CB", "CG1", "CG2", "", "", "", "", "", "", ""],
     "UNK": ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
 }
@@ -612,20 +686,28 @@ restype_name_to_compact_atom_order = {
 }
 restype_name_atom_num = {
     vocabulary.restype_1to3[restype]: len(
-        list(filter(None, restype_name_to_compact_atom_names[vocabulary.restype_1to3[restype]]))
+        list(
+            filter(
+                None,
+                restype_name_to_compact_atom_names[vocabulary.restype_1to3[restype]],
+            )
+        )
     )
     for restype in vocabulary.protein_restypes
 }
 
 restype_name_to_full_atom_names = {
-    restype_name: atom_types for restype_name in list(restype_name_to_compact_atom_names.keys())
+    restype_name: atom_types
+    for restype_name in list(restype_name_to_compact_atom_names.keys())
 }
 
 
 def _make_standard_atom_mask() -> np.ndarray:
     """Returns [num_res_types, num_atom_types] mask array."""
     # +1 to account for unknown (all 0s).
-    mask = np.zeros([len(vocabulary.protein_restypes), compact_atom_type_num], dtype=np.int64)
+    mask = np.zeros(
+        [len(vocabulary.protein_restypes), compact_atom_type_num], dtype=np.int64
+    )
     for restype, restype_letter in enumerate(vocabulary.protein_restypes):
         restype_name = vocabulary.restype_1to3[restype_letter]
         if restype_name not in residue_atoms:
@@ -732,17 +814,21 @@ def _make_rigid_group_constants():
             restype_atom37_mask[restype, atomtype] = 1
             restype_atom37_rigid_group_positions[restype, atomtype, :] = atom_position
 
-            compact_atom_idx = restype_name_to_compact_atom_names[resname].index(atomname)
+            compact_atom_idx = restype_name_to_compact_atom_names[resname].index(
+                atomname
+            )
             restype_compact_atom_to_rigid_group[restype, compact_atom_idx] = group_idx
             restype_compact_atom_mask[restype, compact_atom_idx] = 1
-            restype_compact_atom_rigid_group_positions[
-                restype, compact_atom_idx, :
-            ] = atom_position
+            restype_compact_atom_rigid_group_positions[restype, compact_atom_idx, :] = (
+                atom_position
+            )
 
     for restype, restype_letter in enumerate(vocabulary.protein_restypes):
         resname = vocabulary.restype_1to3[restype_letter]
         atom_positions = {
-            name: np.array(pos) for name, _, pos in rigid_group_atom_positions[resname] if resname
+            name: np.array(pos)
+            for name, _, pos in rigid_group_atom_positions[resname]
+            if resname
         }
 
         # backbone to backbone is the identity transform
@@ -798,7 +884,9 @@ def _make_rigid_group_constants():
 _make_rigid_group_constants()
 
 
-def make_compact_atom_dists_bounds(overlap_tolerance=1.5, bond_length_tolerance_factor=15):
+def make_compact_atom_dists_bounds(
+    overlap_tolerance=1.5, bond_length_tolerance_factor=15
+):
     """Compute upper and lower bounds for bonds to assess violations."""
     restype_compact_atom_bond_lower_bound = np.zeros([21, 14, 14], np.float32)
     restype_compact_atom_bond_upper_bound = np.zeros([21, 14, 14], np.float32)
@@ -819,10 +907,18 @@ def make_compact_atom_dists_bounds(overlap_tolerance=1.5, bond_length_tolerance_
                 atom2_radius = van_der_waals_radius[atom2_name[0]]
                 lower = atom1_radius + atom2_radius - overlap_tolerance
                 upper = 1e10
-                restype_compact_atom_bond_lower_bound[restype, atom1_idx, atom2_idx] = lower
-                restype_compact_atom_bond_lower_bound[restype, atom2_idx, atom1_idx] = lower
-                restype_compact_atom_bond_upper_bound[restype, atom1_idx, atom2_idx] = upper
-                restype_compact_atom_bond_upper_bound[restype, atom2_idx, atom1_idx] = upper
+                restype_compact_atom_bond_lower_bound[restype, atom1_idx, atom2_idx] = (
+                    lower
+                )
+                restype_compact_atom_bond_lower_bound[restype, atom2_idx, atom1_idx] = (
+                    lower
+                )
+                restype_compact_atom_bond_upper_bound[restype, atom1_idx, atom2_idx] = (
+                    upper
+                )
+                restype_compact_atom_bond_upper_bound[restype, atom2_idx, atom1_idx] = (
+                    upper
+                )
 
         # overwrite lower and upper bounds for bonds and angles
         for b in residue_bonds[resname] + residue_virtual_bonds[resname]:

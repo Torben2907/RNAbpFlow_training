@@ -7,49 +7,41 @@ https://github.com/microsoft/protein-frame-flow/blob/main/models/node_embedder.p
 
 import torch
 from torch import Tensor, nn
-from rnabpflow.models import utils
+
 from rnabpflow.data.contacts import NUM_TOKEN_STATES
+from rnabpflow.models import utils
+
 
 class NodeEmbedder(nn.Module):
-
     def __init__(self, module_cfg):
         super().__init__()
         self._cfg = module_cfg
         self.c_s = self._cfg.c_s
         self.c_pos_emb = self._cfg.c_pos_emb
         self.c_timestep_emb = self._cfg.c_timestep_emb
-        self.token_embedding = nn.Embedding(
-            NUM_TOKEN_STATES,
-            module_cfg.c_token_emb
-        )
-        
+        self.token_embedding = nn.Embedding(NUM_TOKEN_STATES, module_cfg.c_token_emb)
+
         self.linear = nn.Linear(
-            self._cfg.c_pos_emb 
-            + self._cfg.c_timestep_emb 
-            + 4
-            + self._cfg.c_token_emb,
-            self.c_s
+            self._cfg.c_pos_emb + self._cfg.c_timestep_emb + 4 + self._cfg.c_token_emb,
+            self.c_s,
         )
-        
 
     def embed_t(self, timesteps: Tensor, mask: Tensor) -> Tensor:
         timestep_emb = utils.get_time_embedding(
-            timesteps[:, 0],
-            self.c_timestep_emb,
-            max_positions=2056
+            timesteps[:, 0], self.c_timestep_emb, max_positions=2056
         )[:, None, :].repeat(1, mask.shape[1], 1)
         return timestep_emb * mask.unsqueeze(-1)
 
-    def forward(self, timesteps: Tensor, mask: Tensor, onehot: Tensor, tokens: Tensor) -> Tensor:
+    def forward(
+        self, timesteps: Tensor, mask: Tensor, onehot: Tensor, tokens: Tensor
+    ) -> Tensor:
         # s: [b]
 
         b, num_res, device = mask.shape[0], mask.shape[1], mask.device
 
         # [b, n_res, c_pos_emb]
         pos = torch.arange(num_res, dtype=torch.float32).to(device)[None]
-        pos_emb = utils.get_index_embedding(
-            pos, self.c_pos_emb, max_len=2056
-        )
+        pos_emb = utils.get_index_embedding(pos, self.c_pos_emb, max_len=2056)
         pos_emb = pos_emb.repeat([b, 1, 1])
         pos_emb = pos_emb * mask.unsqueeze(-1)
 
@@ -58,14 +50,16 @@ class NodeEmbedder(nn.Module):
 
         token_emb = self.token_embedding(tokens)
         token_emb = token_emb * mask.unsqueeze(-1)
-    
+
         # [b, n_res, c_timestep_emb]
-        
+
         input_feats = [
-            pos_emb, 
-            onehot, 
-            self.embed_t(timesteps, mask), # timesteps are between 0 and 1. Convert to integers.
+            pos_emb,
+            onehot,
+            self.embed_t(
+                timesteps, mask
+            ),  # timesteps are between 0 and 1. Convert to integers.
             token_emb,
         ]
-        
+
         return self.linear(torch.cat(input_feats, dim=-1))

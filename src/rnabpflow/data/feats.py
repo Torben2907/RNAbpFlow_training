@@ -14,16 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
 import torch
-import torch.nn as nn
-from typing import Dict
+from torch import nn
 
-import rnabpflow.data.base_constants as rc
-from rnabpflow.data.rigid_utils import Rotation, Rigid
-from rnabpflow.data.tensor_utils import (
-    batched_gather,
-)
+from rnabpflow.data.rigid_utils import Rigid, Rotation
+
 
 def torsion_angles_to_frames(
     r: Rigid,
@@ -43,9 +38,7 @@ def torsion_angles_to_frames(
     bb_rot[..., 1] = 1
 
     # [*, N, 8, 2]
-    alpha = torch.cat(
-        [bb_rot.expand(*alpha.shape[:-2], -1, -1), alpha], dim=-2
-    )
+    alpha = torch.cat([bb_rot.expand(*alpha.shape[:-2], -1, -1), alpha], dim=-2)
 
     # [*, N, 8, 3, 3]
     # Produces rotation matrices of the form:
@@ -127,9 +120,7 @@ def frames_and_literature_positions_to_atom23_pos(  # was 14
     t_atoms_to_global = r[..., None, :] * group_mask
 
     # [*, N, 23]
-    t_atoms_to_global = t_atoms_to_global.map_tensor_fn(
-        lambda x: torch.sum(x, dim=-1)
-    )
+    t_atoms_to_global = t_atoms_to_global.map_tensor_fn(lambda x: torch.sum(x, dim=-1))
 
     # [*, N, 23, 1]
     atom_mask = atom_mask[aatype, ...].unsqueeze(-1)

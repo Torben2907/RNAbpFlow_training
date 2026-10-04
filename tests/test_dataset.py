@@ -31,6 +31,9 @@ if __name__ == "__main__":
     example_batch = load_example_batch()
     print(
         "Loaded batch:",
-        {key: tuple(value.shape) for key, value in example_batch.items() if torch.is_tensor(value)},
+        {
+            key: tuple(value.shape)
+            for key, value in example_batch.items()
+            if torch.is_tensor(value)
+        },
     )
-

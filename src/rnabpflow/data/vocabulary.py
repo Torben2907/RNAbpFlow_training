@@ -136,7 +136,9 @@ protein_restype_1to3 = {
 protein_restype_3to1 = {v: k for k, v in protein_restype_1to3.items()}
 
 protein_restypes_with_x = protein_restypes + ["X"]
-protein_restype_order_with_x = {restype: i for i, restype in enumerate(protein_restypes_with_x)}
+protein_restype_order_with_x = {
+    restype: i for i, restype in enumerate(protein_restypes_with_x)
+}
 nucleic_restypes = ["a", "c", "g", "t", "u"]
 special_restypes = ["-", "_", "1", "2", "3", "4", "5"]
 unknown_protein_restype = "X"

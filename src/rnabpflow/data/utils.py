@@ -5,30 +5,26 @@ Code adapted from
 https://github.com/Profluent-Internships/MMDiff/blob/main/src/data/components/pdb/data_utils.py
 """
 
-from typing import List, Dict, Any
-import numpy as np
 import collections
-import string
-import pickle
 import os
-from rnabpflow.data import nucleotide_constants, protein_constants
-import torch.nn.functional as F
-import torch
-from torch_scatter import scatter_add, scatter
-from Bio import PDB
+import pickle
+import string
+from typing import Any
 
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torch_scatter import scatter, scatter_add
+
+from rnabpflow.data import nucleotide_constants, protein_constants
 from rnabpflow.data import rigid_utils as ru
 
 Rigid = ru.Rigid
 
 # Global map from chain characters to integers.
-ALPHANUMERIC = string.ascii_letters + string.digits + ' '
-CHAIN_TO_INT = {
-    chain_char: i for i, chain_char in enumerate(ALPHANUMERIC)
-}
-INT_TO_CHAIN = {
-    i: chain_char for i, chain_char in enumerate(ALPHANUMERIC)
-}
+ALPHANUMERIC = string.ascii_letters + string.digits + " "
+CHAIN_TO_INT = {chain_char: i for i, chain_char in enumerate(ALPHANUMERIC)}
+INT_TO_CHAIN = {i: chain_char for i, chain_char in enumerate(ALPHANUMERIC)}
 
 NM_TO_ANG_SCALE = 10.0
 ANG_TO_NM_SCALE = 1 / NM_TO_ANG_SCALE
@@ -56,22 +52,38 @@ PAIR_FEATS = ["rel_rots"]
 MAX_NUM_ATOMS_PER_RESIDUE = (
     23  # note: `23` comes from the maximum number of atoms in a nucleic acid
 )
-RESIDUE_ATOM_FEATURES_AXIS_MAPPING = {"atom_positions": -2, "atom_mask": -1, "atom_b_factors": -1}
+RESIDUE_ATOM_FEATURES_AXIS_MAPPING = {
+    "atom_positions": -2,
+    "atom_mask": -1,
+    "atom_b_factors": -1,
+}
 
 COMPLEX_FEATURE_CONCAT_MAP = {
     # note: follows the format `(protein_feature_name, na_feature_name, complex_feature_name, padding_dim): max_feature_dim_size`
     ("all_atom_positions", "all_atom_positions", "all_atom_positions", 1): 37,
     ("all_atom_mask", "all_atom_mask", "all_atom_mask", 1): 37,
     ("atom_deoxy", "atom_deoxy", "atom_deoxy", 0): 0,
-    ("residx_atom14_to_atom37", "residx_atom23_to_atom27", "residx_atom23_to_atom37", 1): 23,
+    (
+        "residx_atom14_to_atom37",
+        "residx_atom23_to_atom27",
+        "residx_atom23_to_atom37",
+        1,
+    ): 23,
     ("atom14_gt_positions", "atom23_gt_positions", "atom23_gt_positions", 1): 23,
     ("rigidgroups_gt_frames", "rigidgroups_gt_frames", "rigidgroups_gt_frames", 1): 11,
-    ("torsion_angles_sin_cos", "torsion_angles_sin_cos", "torsion_angles_sin_cos", 1): 10
+    (
+        "torsion_angles_sin_cos",
+        "torsion_angles_sin_cos",
+        "torsion_angles_sin_cos",
+        1,
+    ): 10,
 }
 
 to_numpy = lambda x: x.detach().cpu().numpy()
-aatype_to_seq = lambda aatype: ''.join([
-        protein_constants.restypes_with_x[x] for x in aatype])
+aatype_to_seq = lambda aatype: "".join(
+    [protein_constants.restypes_with_x[x] for x in aatype]
+)
+
 
 def pad(x: np.ndarray, max_len: int, pad_idx=0, use_torch=False, reverse=False):
     """Right pads dimension of numpy array.
@@ -99,6 +111,7 @@ def pad(x: np.ndarray, max_len: int, pad_idx=0, use_torch=False, reverse=False):
         return torch.pad(x, pad_widths)
     return np.pad(x, pad_widths)
 
+
 def pad_feats(raw_feats, max_len, use_torch=False):
     padded_feats = {
         feat_name: pad(feat, max_len, use_torch=use_torch)
@@ -116,15 +129,18 @@ def pad_feats(raw_feats, max_len, use_torch=False):
             padded_feats[feat_name] = pad_rigid(raw_feats[feat_name], max_len)
     return padded_feats
 
+
 class CPU_Unpickler(pickle.Unpickler):
     """Pytorch pickle loading workaround.
 
     https://github.com/pytorch/pytorch/issues/16797
     """
+
     def find_class(self, module, name):
-        if module == 'torch.storage' and name == '_load_from_bytes':
-            return lambda b: torch.load(io.BytesIO(b), map_location='cpu')
-        else: return super().find_class(module, name)
+        if module == "torch.storage" and name == "_load_from_bytes":
+            return lambda b: torch.load(io.BytesIO(b), map_location="cpu")
+        else:
+            return super().find_class(module, name)
 
 
 def create_rigid(rots, trans):
@@ -134,13 +150,13 @@ def create_rigid(rots, trans):
 
 def batch_align_structures(pos_1, pos_2, mask=None):
     if pos_1.shape != pos_2.shape:
-        raise ValueError('pos_1 and pos_2 must have the same shape.')
+        raise ValueError("pos_1 and pos_2 must have the same shape.")
     if pos_1.ndim != 3:
-        raise ValueError(f'Expected inputs to have shape [B, N, 3]')
+        raise ValueError("Expected inputs to have shape [B, N, 3]")
     num_batch = pos_1.shape[0]
     device = pos_1.device
     batch_indices = (
-        torch.ones(*pos_1.shape[:2], device=device, dtype=torch.int64) 
+        torch.ones(*pos_1.shape[:2], device=device, dtype=torch.int64)
         * torch.arange(num_batch, device=device)[:, None]
     )
     flat_pos_1 = pos_1.reshape(-1, 3)
@@ -148,27 +164,21 @@ def batch_align_structures(pos_1, pos_2, mask=None):
     flat_batch_indices = batch_indices.reshape(-1)
     if mask is None:
         aligned_pos_1, aligned_pos_2, align_rots = align_structures(
-            flat_pos_1, flat_batch_indices, flat_pos_2)
+            flat_pos_1, flat_batch_indices, flat_pos_2
+        )
         aligned_pos_1 = aligned_pos_1.reshape(num_batch, -1, 3)
         aligned_pos_2 = aligned_pos_2.reshape(num_batch, -1, 3)
         return aligned_pos_1, aligned_pos_2, align_rots
 
     flat_mask = mask.reshape(-1).bool()
     _, _, align_rots = align_structures(
-        flat_pos_1[flat_mask],
-        flat_batch_indices[flat_mask],
-        flat_pos_2[flat_mask]
+        flat_pos_1[flat_mask], flat_batch_indices[flat_mask], flat_pos_2[flat_mask]
     )
-    aligned_pos_1 = torch.bmm(
-        pos_1,
-        align_rots
-    )
+    aligned_pos_1 = torch.bmm(pos_1, align_rots)
     return aligned_pos_1, pos_2, align_rots
 
 
-def adjust_oxygen_pos(
-    atom_37: torch.Tensor, pos_is_known = None
-) -> torch.Tensor:
+def adjust_oxygen_pos(atom_37: torch.Tensor, pos_is_known=None) -> torch.Tensor:
     """
     Imputes the position of the oxygen atom on the backbone by using adjacent frame information.
     Specifically, we say that the oxygen atom is in the plane created by the Calpha and C from the
@@ -204,7 +214,9 @@ def adjust_oxygen_pos(
         torch.norm(atom_37[:-1, 2, :] - atom_37[1:, 0, :], keepdim=True, dim=1) + 1e-7
     )
 
-    carbonyl_to_oxygen: torch.Tensor = calpha_to_carbonyl + nitrogen_to_carbonyl  # (N-1, 3)
+    carbonyl_to_oxygen: torch.Tensor = (
+        calpha_to_carbonyl + nitrogen_to_carbonyl
+    )  # (N-1, 3)
     carbonyl_to_oxygen = carbonyl_to_oxygen / (
         torch.norm(carbonyl_to_oxygen, dim=1, keepdim=True) + 1e-7
     )
@@ -233,7 +245,9 @@ def adjust_oxygen_pos(
     # known due to pos_is_known being false.
 
     if pos_is_known is None:
-        pos_is_known = torch.ones((atom_37.shape[0],), dtype=torch.int64, device=atom_37.device)
+        pos_is_known = torch.ones(
+            (atom_37.shape[0],), dtype=torch.int64, device=atom_37.device
+        )
 
     next_res_gone: torch.Tensor = ~pos_is_known.bool()  # (N,)
     next_res_gone = torch.cat(
@@ -242,22 +256,20 @@ def adjust_oxygen_pos(
     next_res_gone = next_res_gone[1:]  # (N,)
 
     atom_37[next_res_gone, 4, :] = (
-        atom_37[next_res_gone, 2, :]
-        + carbonyl_to_oxygen_term[next_res_gone, :] * 1.23
+        atom_37[next_res_gone, 2, :] + carbonyl_to_oxygen_term[next_res_gone, :] * 1.23
     )
 
     return atom_37
 
 
-def write_pkl(
-        save_path: str, pkl_data: Any, create_dir: bool = False, use_torch=False):
+def write_pkl(save_path: str, pkl_data: Any, create_dir: bool = False, use_torch=False):
     """Serialize data into a pickle file."""
     if create_dir:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
     if use_torch:
         torch.save(pkl_data, save_path, pickle_protocol=pickle.HIGHEST_PROTOCOL)
     else:
-        with open(save_path, 'wb') as handle:
+        with open(save_path, "wb") as handle:
             pickle.dump(pkl_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
@@ -267,16 +279,19 @@ def read_pkl(read_path: str, verbose=True, use_torch=False, map_location=None):
         if use_torch:
             return torch.load(read_path, map_location=map_location)
         else:
-            with open(read_path, 'rb') as handle:
+            with open(read_path, "rb") as handle:
                 return pickle.load(handle)
     except Exception as e:
         try:
-            with open(read_path, 'rb') as handle:
+            with open(read_path, "rb") as handle:
                 return CPU_Unpickler(handle).load()
         except Exception as e2:
             if verbose:
-                print(f'Failed to read {read_path}. First error: {e}\n Second error: {e2}')
-            raise(e)
+                print(
+                    f"Failed to read {read_path}. First error: {e}\n Second error: {e2}"
+                )
+            raise (e)
+
 
 def int_id_to_str_id(num: int) -> str:
     """Encodes a number as a string, using reverse spreadsheet style naming.
@@ -297,7 +312,7 @@ def int_id_to_str_id(num: int) -> str:
     while num >= 0:
         output.append(chr(num % 26 + ord("A")))
         num = num // 26 - 1
-    return "".join(output)            
+    return "".join(output)
 
 
 def chain_str_to_int(chain_str: str):
@@ -309,19 +324,22 @@ def chain_str_to_int(chain_str: str):
     return chain_int
 
 
-def parse_chain_feats(chain_feats, scale_factor=1.):
+def parse_chain_feats(chain_feats, scale_factor=1.0):
     # ca_idx = protein_constants.atom_order['CA'] # CHANGE
-    ca_idx = protein_constants.atom_order['C4\'']
-    chain_feats['bb_mask'] = chain_feats['atom_mask'][:, ca_idx]
-    bb_pos = chain_feats['atom_positions'][:, ca_idx]
-    bb_center = np.sum(bb_pos, axis=0) / (np.sum(chain_feats['bb_mask']) + 1e-5)
-    centered_pos = chain_feats['atom_positions'] - bb_center[None, None, :]
+    ca_idx = protein_constants.atom_order["C4'"]
+    chain_feats["bb_mask"] = chain_feats["atom_mask"][:, ca_idx]
+    bb_pos = chain_feats["atom_positions"][:, ca_idx]
+    bb_center = np.sum(bb_pos, axis=0) / (np.sum(chain_feats["bb_mask"]) + 1e-5)
+    centered_pos = chain_feats["atom_positions"] - bb_center[None, None, :]
     scaled_pos = centered_pos / scale_factor
-    chain_feats['atom_positions'] = scaled_pos * chain_feats['atom_mask'][..., None]
-    chain_feats['bb_positions'] = chain_feats['atom_positions'][:, ca_idx]
+    chain_feats["atom_positions"] = scaled_pos * chain_feats["atom_mask"][..., None]
+    chain_feats["bb_positions"] = chain_feats["atom_positions"][:, ca_idx]
     return chain_feats
 
-def parse_chain_feats_pdb(chain_feats, molecule_constants, molecule_backbone_atom_name, scale_factor=1.0):
+
+def parse_chain_feats_pdb(
+    chain_feats, molecule_constants, molecule_backbone_atom_name, scale_factor=1.0
+):
     core_atom_idx = molecule_constants.atom_order[molecule_backbone_atom_name]
     chain_feats["bb_mask"] = chain_feats["atom_mask"][:, core_atom_idx]
     bb_pos = chain_feats["atom_positions"][:, core_atom_idx]
@@ -330,7 +348,8 @@ def parse_chain_feats_pdb(chain_feats, molecule_constants, molecule_backbone_ato
     scaled_pos = centered_pos / scale_factor
     chain_feats["atom_positions"] = scaled_pos * chain_feats["atom_mask"][..., None]
     chain_feats["bb_positions"] = chain_feats["atom_positions"][:, core_atom_idx]
-    return chain_feats 
+    return chain_feats
+
 
 def get_complex_is_ca_mask(complex_feats):
     is_protein_residue_mask = complex_feats["molecule_type_encoding"][:, 0] == 1
@@ -338,9 +357,14 @@ def get_complex_is_ca_mask(complex_feats):
         complex_feats["molecule_type_encoding"][:, 2] == 1
     )
     complex_is_ca_mask = np.zeros_like(complex_feats["atom_mask"], dtype=np.bool_)
-    complex_is_ca_mask[is_protein_residue_mask, protein_constants.atom_order["CA"]] = True
-    complex_is_ca_mask[is_na_residue_mask, nucleotide_constants.atom_order["C4'"]] = True
-    return complex_is_ca_mask   
+    complex_is_ca_mask[is_protein_residue_mask, protein_constants.atom_order["CA"]] = (
+        True
+    )
+    complex_is_ca_mask[is_na_residue_mask, nucleotide_constants.atom_order["C4'"]] = (
+        True
+    )
+    return complex_is_ca_mask
+
 
 def parse_complex_feats(complex_feats, scale_factor=1.0):
     complex_is_ca_mask = get_complex_is_ca_mask(complex_feats)
@@ -353,8 +377,8 @@ def parse_complex_feats(complex_feats, scale_factor=1.0):
     complex_feats["bb_positions"] = complex_feats["atom_positions"][complex_is_ca_mask]
     return complex_feats
 
-def concat_np_features(
-        np_dicts: List[Dict[str, np.ndarray]], add_batch_dim: bool):
+
+def concat_np_features(np_dicts: list[dict[str, np.ndarray]], add_batch_dim: bool):
     """Performs a nested concatenation of feature dicts.
 
     Args:
@@ -450,7 +474,9 @@ def align_structures(
 
     # Compute covariance matrix for optimal rotation (Q.T @ P) -> [B x 3 x 3].
     cov = scatter_add(
-        batch_positions[:, None, :] * reference_positions[:, :, None], batch_indices, dim=0
+        batch_positions[:, None, :] * reference_positions[:, :, None],
+        batch_indices,
+        dim=0,
     )
 
     # Perform singular value decomposition. (all [B x 3 x 3])
@@ -476,6 +502,7 @@ def align_structures(
 
     return batch_positions_rotated, reference_positions, rotation_matrices
 
+
 def add_padding_to_tensor_dim(
     tensor: torch.Tensor,
     dim: int,
@@ -484,9 +511,9 @@ def add_padding_to_tensor_dim(
     pad_mode: str = "constant",
     pad_value: Any = 0,
 ) -> torch.Tensor:
-    assert (
-        dim < tensor.ndim
-    ), "Requested dimension for padding must be in range for number of tensor dimensions."
+    assert dim < tensor.ndim, (
+        "Requested dimension for padding must be in range for number of tensor dimensions."
+    )
     pad_dims = [(0, 0)] * tensor.ndim
     pad_length = max(max_dim_size - tensor.shape[dim], 0)
     dim_padding = (pad_length, 0) if pad_front else (0, pad_length)
@@ -494,6 +521,7 @@ def add_padding_to_tensor_dim(
     pad_dims[dim_to_pad] = dim_padding
     pad_dims = tuple(entry for dim_pad in pad_dims for entry in dim_pad)
     return F.pad(tensor, pad=pad_dims, mode=pad_mode, value=pad_value)
+
 
 def concat_complex_torch_features(
     complex_torch_dict,
@@ -533,7 +561,9 @@ def concat_complex_torch_features(
                 else protein_feature_tensor
             )
             na_feature_tensor = (
-                na_feature_tensor[None] if na_feature_tensor is not None else na_feature_tensor
+                na_feature_tensor[None]
+                if na_feature_tensor is not None
+                else na_feature_tensor
             )
         # Pad features for each type of molecule
         padded_protein_feat_val = (
@@ -559,13 +589,16 @@ def concat_complex_torch_features(
         # Concatenate features between molecule types as necessary
         if padded_protein_feat_val is not None and padded_na_feat_val is not None:
             concat_padded_feat_val = torch.concatenate(
-                (padded_protein_feat_val, padded_na_feat_val), dim=(1 if add_batch_dim else 0)
+                (padded_protein_feat_val, padded_na_feat_val),
+                dim=(1 if add_batch_dim else 0),
             )
         elif padded_protein_feat_val is not None:
             concat_padded_feat_val = padded_protein_feat_val
         elif padded_na_feat_val is not None:
             concat_padded_feat_val = padded_na_feat_val
         else:
-            raise Exception("Features for at least one type of molecule must be provided.")
+            raise Exception(
+                "Features for at least one type of molecule must be provided."
+            )
         complex_torch_dict[complex_feature] = concat_padded_feat_val
     return complex_torch_dict

@@ -1,7 +1,6 @@
 import torch
 from torch import Tensor
 
-
 CONTACT = 1
 NO_CONTACT = 0
 MASK = 2
@@ -43,9 +42,7 @@ def make_contact_tokens(
 def random_mask_tokens(
     tokens: Tensor, res_mask: Tensor, mask_probability: float = 0.15
 ) -> tuple[Tensor, Tensor]:
-    random_mask = (
-        torch.rand_like(tokens.float()) < mask_probability
-    ) & res_mask.bool()
+    random_mask = (torch.rand_like(tokens.float()) < mask_probability) & res_mask.bool()
 
     masked_tokens = tokens.clone()
     masked_tokens[random_mask] = MASK

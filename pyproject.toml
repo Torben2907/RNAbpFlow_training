@@ -5,3 +5,6 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "RNAbpFlow"
 version = "0.1.0"
+
+[tool.setuptools.package-data]
+rnabpflow = ["py.typed"]

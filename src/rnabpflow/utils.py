@@ -6,7 +6,9 @@ https://github.com/microsoft/protein-frame-flow/blob/main/experiments/utils.py
 """
 
 import logging
+
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
+
 
 def get_pylogger(name=__name__) -> logging.Logger:
     """Initializes multi-GPU-friendly python command line logger."""
@@ -15,7 +17,15 @@ def get_pylogger(name=__name__) -> logging.Logger:
 
     # this ensures all logging levels get marked with the rank zero decorator
     # otherwise logs would get multiplied for each GPU process in multi-GPU setup
-    logging_levels = ("debug", "info", "warning", "error", "exception", "fatal", "critical")
+    logging_levels = (
+        "debug",
+        "info",
+        "warning",
+        "error",
+        "exception",
+        "fatal",
+        "critical",
+    )
     for level in logging_levels:
         setattr(logger, level, rank_zero_only(getattr(logger, level)))
 
@@ -27,9 +37,7 @@ def flatten_dict(raw_dict):
     flattened = []
     for k, v in raw_dict.items():
         if isinstance(v, dict):
-            flattened.extend([
-                (f'{k}:{i}', j) for i, j in flatten_dict(v)
-            ])
+            flattened.extend([(f"{k}:{i}", j) for i, j in flatten_dict(v)])
         else:
             flattened.append((k, v))
     return flattened

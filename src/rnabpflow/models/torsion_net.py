@@ -4,14 +4,16 @@ https://github.com/jasonkyuyim/se3_diffusion/blob/53359d71cfabc819ffaa571abd2cef
 https://github.com/aqlaboratory/openfold/blob/80c85b54e1a81d9a66df3f1b6c257ff97f10acd3/openfold/model/structure_module.py#L78
 """
 
+import math
+from collections.abc import Callable
+
 import numpy as np
 import torch
-import math
 from scipy.stats import truncnorm
-import torch.nn as nn
-from typing import Optional, Callable, List
+from torch import nn
 
-def permute_final_dims(tensor: torch.Tensor, inds: List[int]):
+
+def permute_final_dims(tensor: torch.Tensor, inds: list[int]):
     zero_index = -1 * len(inds)
     first_inds = list(range(len(tensor.shape[:zero_index])))
     return tensor.permute(first_inds + [zero_index + i for i in inds])
@@ -25,6 +27,7 @@ def ipa_point_weights_init_(weights):
     with torch.no_grad():
         softplus_inverse_1 = 0.541324854612918
         weights.fill_(softplus_inverse_1)
+
 
 def _prod(nums):
     out = 1
@@ -46,6 +49,7 @@ def _calculate_fan(linear_weight_shape, fan="fan_in"):
         raise ValueError("Invalid fan option")
 
     return f
+
 
 def trunc_normal_init_(weights, scale=1.0, fan="fan_in"):
     shape = weights.shape
@@ -86,6 +90,7 @@ def gating_init_(weights):
 def normal_init_(weights):
     torch.nn.init.kaiming_normal_(weights, nonlinearity="linear")
 
+
 class Linear(nn.Linear):
     """
     A Linear layer with built-in nonstandard initializations. Called just
@@ -101,7 +106,7 @@ class Linear(nn.Linear):
         out_dim: int,
         bias: bool = True,
         init: str = "default",
-        init_fn: Optional[Callable[[torch.Tensor, torch.Tensor], None]] = None,
+        init_fn: Callable[[torch.Tensor, torch.Tensor], None] | None = None,
     ):
         """
         Args:
@@ -126,7 +131,7 @@ class Linear(nn.Linear):
                 A custom initializer taking weight and bias as inputs.
                 Overrides init if not None.
         """
-        super(Linear, self).__init__(in_dim, out_dim, bias=bias)
+        super().__init__(in_dim, out_dim, bias=bias)
 
         if bias:
             with torch.no_grad():
@@ -152,7 +157,8 @@ class Linear(nn.Linear):
                 final_init_(self.weight)
             else:
                 raise ValueError("Invalid init string.")
-            
+
+
 class AngleResnetBlock(nn.Module):
     def __init__(self, c_hidden):
         """
@@ -160,7 +166,7 @@ class AngleResnetBlock(nn.Module):
             c_hidden:
                 Hidden channel dimension
         """
-        super(AngleResnetBlock, self).__init__()
+        super().__init__()
 
         self.c_hidden = c_hidden
 
@@ -178,8 +184,9 @@ class AngleResnetBlock(nn.Module):
         a = self.relu(a)
         a = self.linear_2(a)
 
-        return a + s_initial            
-            
+        return a + s_initial
+
+
 class TorsionAngleHead(nn.Module):
     """
     Implements Algorithm 20, lines 11-14
@@ -199,8 +206,7 @@ class TorsionAngleHead(nn.Module):
             epsilon:
                 Small constant for normalization
         """
-        super(TorsionAngleHead, self).__init__()
-        
+        super().__init__()
 
         self.c_in = c_in
         self.c_hidden = c_hidden
@@ -252,10 +258,10 @@ class TorsionAngleHead(nn.Module):
         unnormalized_s = s
         norm_denom = torch.sqrt(
             torch.clamp(
-                torch.sum(s ** 2, dim=-1, keepdim=True),
+                torch.sum(s**2, dim=-1, keepdim=True),
                 min=self.eps,
             )
         )
         s = s / norm_denom
 
-        return unnormalized_s, s            
+        return unnormalized_s, s

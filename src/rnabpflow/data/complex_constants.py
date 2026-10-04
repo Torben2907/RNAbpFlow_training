@@ -127,7 +127,10 @@ unknown_nucleic_token = restypes.index(unknown_nucleic_restype)  # := 29
 protein_restype_num = len(protein_restypes + [unknown_protein_restype])  # := 21
 na_restype_num = len(nucleic_restypes + [unknown_nucleic_restype])  # := 9
 protein_na_restype_num = len(
-    protein_restypes + [unknown_protein_restype] + nucleic_restypes + [unknown_nucleic_restype]
+    protein_restypes
+    + [unknown_protein_restype]
+    + nucleic_restypes
+    + [unknown_nucleic_restype]
 )  # := 30
 
 default_protein_restype = restypes.index("A")  # := 0

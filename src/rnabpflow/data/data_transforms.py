@@ -17,16 +17,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 from functools import wraps
 
 import numpy as np
 import torch
-from rnabpflow.data.rigid_utils import Rigid, Rotation
 
 from rnabpflow.data import nucleotide_constants as nc
 from rnabpflow.data import vocabulary
 from rnabpflow.data.complex_constants import NUM_PROT_NA_TORSIONS
+from rnabpflow.data.rigid_utils import Rigid, Rotation
 
 MSA_FEATURE_NAMES = [
     "msa",
@@ -37,6 +36,7 @@ MSA_FEATURE_NAMES = [
     "true_msa",
 ]
 
+
 def curry1(f):
     """Supply all arguments but the first."""
 
@@ -46,6 +46,7 @@ def curry1(f):
 
     return fc
 
+
 def batched_gather(data, inds, dim=0, no_batch_dims=0):
     ranges = []
     for i, s in enumerate(data.shape[:no_batch_dims]):
@@ -53,18 +54,17 @@ def batched_gather(data, inds, dim=0, no_batch_dims=0):
         r = r.view(*(*((1,) * i), -1, *((1,) * (len(inds.shape) - i - 1))))
         ranges.append(r)
 
-    remaining_dims = [
-        slice(None) for _ in range(len(data.shape) - no_batch_dims)
-    ]
+    remaining_dims = [slice(None) for _ in range(len(data.shape) - no_batch_dims)]
     remaining_dims[dim - no_batch_dims if dim >= 0 else dim] = inds
     ranges.extend(remaining_dims)
     return data[ranges]
 
+
 def atom23_list_to_atom27_list(batch, atom23_data_names, inplace=False):
     aatype = batch["aatype"].to(torch.long)
-    assert (
-        21 <= aatype.min() <= aatype.max() <= 26
-    ), "Only nucleic acid residue inputs are allowed in `atom23_list_to_atom27_list()`."
+    assert 21 <= aatype.min() <= aatype.max() <= 26, (
+        "Only nucleic acid residue inputs are allowed in `atom23_list_to_atom27_list()`."
+    )
 
     atom27_data_list = []
     for data_name in atom23_data_names:
@@ -86,6 +86,7 @@ def atom23_list_to_atom27_list(batch, atom23_data_names, inplace=False):
 
     return atom27_data_list
 
+
 def construct_aatype9_non_deoxy_offsets(aatype):
     # build the aatype9 index offsets for amino acids of non-DNA nucleic acid molecules (e.g., RNA)
     non_deoxy_offsets = torch.zeros_like(aatype)
@@ -105,12 +106,10 @@ def convert_na_aatype6_to_aatype9(
     if aatype_inputs_present and aatype.min() > vocabulary.protein_restype_num:
         aatype -= vocabulary.protein_restype_num + 1
     if aatype_inputs_present:
-        assert (
-            0 <= aatype.min() <= aatype.max() <= 5
-        ), "Only nucleic acid residue inputs are allowed in `convert_na_aatype6_to_aatype9()`."
-    aatype[
-        aatype == nc.NA_AATYPE6_MASK_RESIDUE_INDEX
-    ] = (
+        assert 0 <= aatype.min() <= aatype.max() <= 5, (
+            "Only nucleic acid residue inputs are allowed in `convert_na_aatype6_to_aatype9()`."
+        )
+    aatype[aatype == nc.NA_AATYPE6_MASK_RESIDUE_INDEX] = (
         nc.NA_AATYPE9_MASK_RESIDUE_INDEX
     )  # re-number mask token for all nucleic acid molecule types
     if deoxy_offset_mask is not None:
@@ -122,34 +121,45 @@ def convert_na_aatype6_to_aatype9(
             aatype += vocabulary.protein_restype_num + 1
     return aatype
 
+
 def atom27_to_frames(na, eps=1e-8):
     aatype = na["aatype"].clone()
     all_atom_positions = na["all_atom_positions"]
-    all_atom_mask = na["all_atom_mask"] # NOTE: [1]_i if atom i exists in the residue's molecular structure (out of 27)
+    all_atom_mask = na[
+        "all_atom_mask"
+    ]  # NOTE: [1]_i if atom i exists in the residue's molecular structure (out of 27)
     na_deoxy = na["atom_deoxy"]
 
-    assert (
-        21 <= aatype.min() <= aatype.max() <= 26
-    ), "Only nucleic acid residue inputs are allowed in `atom27_to_frames()`."
+    assert 21 <= aatype.min() <= aatype.max() <= 26, (
+        "Only nucleic acid residue inputs are allowed in `atom27_to_frames()`."
+    )
     aatype = convert_na_aatype6_to_aatype9(aatype, deoxy_offset_mask=na_deoxy)
 
     batch_dims = len(aatype.shape[:-1])
     # 9 NT types (i.e., DA, DC, DG, DT, A, C, G, U, plus x for missing residues), 11 groups
     nttype_rigidgroup_base_atom_names = np.full([9, 11, 3], "", dtype=object)
     # atoms that constitute backbone frame 1
-    nttype_rigidgroup_base_atom_names[:, 0, :] = ["O4'", "C4'", "C3'"] # NOTE: you can change this to alter the frame design
+    nttype_rigidgroup_base_atom_names[:, 0, :] = [
+        "O4'",
+        "C4'",
+        "C3'",
+    ]  # NOTE: you can change this to alter the frame design
 
     for restype, restype_letter in enumerate(nc.restypes):
         # keep one-letter format for DNA/RNA
-        resname = restype_letter # ["DA", "DC", "DG", "DT", "A", "C", "G", "U"]
-        
+        resname = restype_letter  # ["DA", "DC", "DG", "DT", "A", "C", "G", "U"]
+
         for torsion_idx in range(NUM_PROT_NA_TORSIONS):
             if nc.chi_angles_mask[resname][torsion_idx]:
                 names = nc.chi_angles_atoms[resname][torsion_idx]
-                if (names): # note: DNA molecules do not have `["N9"/"N1", "C1'", "C2'", "O2'"]` frames
-                    nttype_rigidgroup_base_atom_names[restype, torsion_idx + 1, :] = names[1:]
+                if names:  # note: DNA molecules do not have `["N9"/"N1", "C1'", "C2'", "O2'"]` frames
+                    nttype_rigidgroup_base_atom_names[restype, torsion_idx + 1, :] = (
+                        names[1:]
+                    )
 
-    nttype_rigidgroup_mask = all_atom_mask.new_zeros((*aatype.shape[:-1], 9, 11),)
+    nttype_rigidgroup_mask = all_atom_mask.new_zeros(
+        (*aatype.shape[:-1], 9, 11),
+    )
     nttype_rigidgroup_mask[..., 0] = 1
     nttype_rigidgroup_mask[..., :8, 1:] = all_atom_mask.new_tensor(
         # note: Python 3.8 natively maintains key-value insertion order when iterating through dictionaries
@@ -228,6 +238,7 @@ def atom27_to_frames(na, eps=1e-8):
 
     return na
 
+
 def make_atom23_masks(na):
     """Construct denser atom positions (23 dimensions instead of 27)."""
     restype_atom23_to_atom27 = []
@@ -236,9 +247,9 @@ def make_atom23_masks(na):
 
     na_aatype = na["aatype"].to(torch.long).clone()
     na_deoxy = na["atom_deoxy"].to(torch.bool)
-    assert (
-        21 <= na_aatype.min() <= na_aatype.max() <= 26
-    ), "Only nucleic acid residue inputs are allowed in `make_atom23_masks()`."
+    assert 21 <= na_aatype.min() <= na_aatype.max() <= 26, (
+        "Only nucleic acid residue inputs are allowed in `make_atom23_masks()`."
+    )
 
     for nt in nc.restypes:
         atom_names = nc.restype_name_to_compact_atom_names[nt]
@@ -276,9 +287,9 @@ def make_atom23_masks(na):
         device=na["aatype"].device,
     )
 
-    assert (
-        21 <= na_aatype.min() <= na_aatype.max() <= 26
-    ), "Only nucleic acid residue inputs are allowed in `make_atom23_masks()`."
+    assert 21 <= na_aatype.min() <= na_aatype.max() <= 26, (
+        "Only nucleic acid residue inputs are allowed in `make_atom23_masks()`."
+    )
     na_aatype = convert_na_aatype6_to_aatype9(na_aatype, deoxy_offset_mask=na_deoxy)
 
     # create the mapping for (residx, atom23) --> atom27, i.e. an array
@@ -294,7 +305,9 @@ def make_atom23_masks(na):
     na["residx_atom27_to_atom23"] = residx_atom27_to_atom23.long()
 
     # create the corresponding mask
-    restype_atom27_mask = torch.zeros([9, 27], dtype=torch.float32, device=na["aatype"].device)
+    restype_atom27_mask = torch.zeros(
+        [9, 27], dtype=torch.float32, device=na["aatype"].device
+    )
     for restype, restype_letter in enumerate(nc.restypes):
         restype_name = restype_letter
         atom_names = nc.residue_atoms[restype_name]
@@ -306,6 +319,7 @@ def make_atom23_masks(na):
     na["atom27_atom_exists"] = residx_atom27_mask
 
     return na
+
 
 def get_chi_atom_indices(molecule_type):
     """Returns atom indices needed to compute chi angles for all residue types.
@@ -332,12 +346,17 @@ def get_chi_atom_indices(molecule_type):
             atom_indices.append([0, 0, 0, 0])  # For chi angles not defined on the NT.
         chi_atom_indices.append(atom_indices)
 
-    chi_atom_indices.append([[0, 0, 0, 0]] * NUM_PROT_NA_TORSIONS)  # For UNKNOWN residue.
+    chi_atom_indices.append(
+        [[0, 0, 0, 0]] * NUM_PROT_NA_TORSIONS
+    )  # For UNKNOWN residue.
 
     return chi_atom_indices
 
+
 @curry1
-def atom27_to_torsion_angles(na, prefix="", randomly_noise_torsion_atoms_to_place=False):
+def atom27_to_torsion_angles(
+    na, prefix="", randomly_noise_torsion_atoms_to_place=False
+):
     """Convert coordinates to torsion angles.
 
     This function is extremely sensitive to floating point imprecisions
@@ -367,9 +386,9 @@ def atom27_to_torsion_angles(na, prefix="", randomly_noise_torsion_atoms_to_plac
     all_atom_mask = na[prefix + "all_atom_mask"]
     na_deoxy = na["atom_deoxy"]
 
-    assert (
-        21 <= aatype.max() <= 26
-    ), "Only nucleic acid residue inputs are allowed in `atom27_to_torsion_angles()`."
+    assert 21 <= aatype.max() <= 26, (
+        "Only nucleic acid residue inputs are allowed in `atom27_to_torsion_angles()`."
+    )
     aatype = convert_na_aatype6_to_aatype9(aatype, deoxy_offset_mask=na_deoxy)
 
     chi_atom_indices = torch.as_tensor(get_chi_atom_indices("NA"), device=aatype.device)

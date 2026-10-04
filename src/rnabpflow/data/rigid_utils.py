@@ -15,7 +15,9 @@ ROTATION_TENSOR_TYPE = Float[torch.Tensor, "... 3 3"]
 COORDINATES_TENSOR_TYPE = Float[torch.Tensor, "... num_nodes 3"]
 
 
-def rot_matmul(a: ROTATION_TENSOR_TYPE, b: ROTATION_TENSOR_TYPE) -> ROTATION_TENSOR_TYPE:
+def rot_matmul(
+    a: ROTATION_TENSOR_TYPE, b: ROTATION_TENSOR_TYPE
+) -> ROTATION_TENSOR_TYPE:
     """Performs matrix multiplication of two rotation matrix tensors. Written out by hand to avoid
     AMP downcasting.
 
@@ -71,7 +73,9 @@ def rot_matmul(a: ROTATION_TENSOR_TYPE, b: ROTATION_TENSOR_TYPE) -> ROTATION_TEN
     return torch.stack([row_1, row_2, row_3], dim=-2)
 
 
-def rot_vec_mul(r: ROTATION_TENSOR_TYPE, t: COORDINATES_TENSOR_TYPE) -> COORDINATES_TENSOR_TYPE:
+def rot_vec_mul(
+    r: ROTATION_TENSOR_TYPE, t: COORDINATES_TENSOR_TYPE
+) -> COORDINATES_TENSOR_TYPE:
     """Applies a rotation to a vector. Written out by hand to avoid transfer to avoid AMP
     downcasting.
 
@@ -113,7 +117,9 @@ def identity_trans(
     device: Optional[torch.device] = None,
     requires_grad: bool = True,
 ) -> COORDINATES_TENSOR_TYPE:
-    trans = torch.zeros((*batch_dims, 3), dtype=dtype, device=device, requires_grad=requires_grad)
+    trans = torch.zeros(
+        (*batch_dims, 3), dtype=dtype, device=device, requires_grad=requires_grad
+    )
     return trans
 
 
@@ -123,7 +129,9 @@ def identity_quats(
     device: Optional[torch.device] = None,
     requires_grad: bool = True,
 ) -> QUATERNION_TENSOR_TYPE:
-    quat = torch.zeros((*batch_dims, 4), dtype=dtype, device=device, requires_grad=requires_grad)
+    quat = torch.zeros(
+        (*batch_dims, 4), dtype=dtype, device=device, requires_grad=requires_grad
+    )
 
     with torch.no_grad():
         quat[..., 0] = 1
@@ -239,7 +247,8 @@ def quat_multiply(
     mat = quat1.new_tensor(_QUAT_MULTIPLY)
     reshaped_mat = mat.view((1,) * len(quat1.shape[:-1]) + mat.shape)
     return torch.sum(
-        reshaped_mat * quat1[..., :, None, None] * quat2[..., None, :, None], dim=(-3, -2)
+        reshaped_mat * quat1[..., :, None, None] * quat2[..., None, :, None],
+        dim=(-3, -2),
     )
 
 
@@ -266,7 +275,9 @@ def invert_quat(
     if mask is not None:
         # avoid creating NaNs with masked nodes' "missing" values via division by zero
         inv, quat_mask = quat_prime, mask.bool()
-        inv[quat_mask] = inv[quat_mask] / torch.sum(quat[quat_mask] ** 2, dim=-1, keepdim=True)
+        inv[quat_mask] = inv[quat_mask] / torch.sum(
+            quat[quat_mask] ** 2, dim=-1, keepdim=True
+        )
     else:
         inv = quat_prime / torch.sum(quat**2, dim=-1, keepdim=True)
     return inv
@@ -304,7 +315,9 @@ class Rotation:
             normalize_quats:
                 If quats is specified, whether to normalize quats
         """
-        if (rot_mats is None and quats is None) or (rot_mats is not None and quats is not None):
+        if (rot_mats is None and quats is None) or (
+            rot_mats is not None and quats is not None
+        ):
             raise ValueError("Exactly one input argument must be specified")
 
         if (rot_mats is not None and rot_mats.shape[-2:] != (3, 3)) or (
@@ -502,10 +515,16 @@ class Rotation:
             The reshaped rotation
         """
         if self._quats is not None:
-            new_rots = self._quats.reshape(new_rots_shape) if new_rots_shape else self._quats
+            new_rots = (
+                self._quats.reshape(new_rots_shape) if new_rots_shape else self._quats
+            )
             new_rot = Rotation(quats=new_rots, normalize_quats=False)
         else:
-            new_rots = self._rot_mats.reshape(new_rots_shape) if new_rots_shape else self._rot_mats
+            new_rots = (
+                self._rot_mats.reshape(new_rots_shape)
+                if new_rots_shape
+                else self._rot_mats
+            )
             new_rot = Rotation(rot_mats=new_rots, normalize_quats=False)
 
         return new_rot
@@ -577,7 +596,9 @@ class Rotation:
         large_angle_scales = angle / torch.sin(angle / 2 + eps)
 
         small_angles = (angle <= 1e-3).float()
-        rot_vec_scale = small_angle_scales * small_angles + (1 - small_angles) * large_angle_scales
+        rot_vec_scale = (
+            small_angle_scales * small_angles + (1 - small_angles) * large_angle_scales
+        )
         rot_vec = rot_vec_scale[..., None] * quat[..., 1:]
         return rot_vec
 
@@ -749,11 +770,15 @@ class Rotation:
         """
         if self._rot_mats is not None:
             rot_mats = self._rot_mats.view(self._rot_mats.shape[:-2] + (9,))
-            rot_mats = torch.stack(list(map(fn, torch.unbind(rot_mats, dim=-1))), dim=-1)
+            rot_mats = torch.stack(
+                list(map(fn, torch.unbind(rot_mats, dim=-1))), dim=-1
+            )
             rot_mats = rot_mats.view(rot_mats.shape[:-1] + (3, 3))
             return Rotation(rot_mats=rot_mats, quats=None)
         elif self._quats is not None:
-            quats = torch.stack(list(map(fn, torch.unbind(self._quats, dim=-1))), dim=-1)
+            quats = torch.stack(
+                list(map(fn, torch.unbind(self._quats, dim=-1))), dim=-1
+            )
             return Rotation(rot_mats=None, quats=quats, normalize_quats=False)
         else:
             raise ValueError("Both rotations are None")
@@ -767,11 +792,15 @@ class Rotation:
         if self._rot_mats is not None:
             return Rotation(rot_mats=self._rot_mats.cuda(), quats=None)
         elif self._quats is not None:
-            return Rotation(rot_mats=None, quats=self._quats.cuda(), normalize_quats=False)
+            return Rotation(
+                rot_mats=None, quats=self._quats.cuda(), normalize_quats=False
+            )
         else:
             raise ValueError("Both rotations are None")
 
-    def to(self, device: Optional[torch.device], dtype: Optional[torch.dtype]) -> "Rotation":
+    def to(
+        self, device: Optional[torch.device], dtype: Optional[torch.dtype]
+    ) -> "Rotation":
         """Analogous to the to() method of torch Tensors.
 
         Args:
@@ -987,9 +1016,13 @@ class Rigid:
             The reshaped transformation
         """
         new_rots = (
-            self._rots.reshape(new_rots_shape=new_rots_shape) if new_rots_shape else self._rots
+            self._rots.reshape(new_rots_shape=new_rots_shape)
+            if new_rots_shape
+            else self._rots
         )
-        new_trans = self._trans.reshape(new_trans_shape) if new_trans_shape else self._trans
+        new_trans = (
+            self._trans.reshape(new_trans_shape) if new_trans_shape else self._trans
+        )
 
         return Rigid(new_rots, new_trans)
 
@@ -1011,7 +1044,7 @@ class Rigid:
 
     def compose_q_update_vec(
         self,
-        q_update_vec: Float[torch.Tensor, "... num_nodes 6"],  # noqa: F722
+        q_update_vec: Float[torch.Tensor, "... num_nodes 6"],
         update_mask: Optional[UPDATE_NODE_MASK_TENSOR_TYPE] = None,
     ) -> "Rigid":
         """Composes the transformation with a quaternion update vector of shape [*, 6], where the
@@ -1112,11 +1145,13 @@ class Rigid:
             The transformed Rigid object
         """
         new_rots = self._rots.map_tensor_fn(fn)
-        new_trans = torch.stack(list(map(fn, torch.unbind(self._trans, dim=-1))), dim=-1)
+        new_trans = torch.stack(
+            list(map(fn, torch.unbind(self._trans, dim=-1))), dim=-1
+        )
 
         return Rigid(new_rots, new_trans)
 
-    def to_tensor_4x4(self) -> Float[torch.Tensor, "... num_nodes 4 4"]:  # noqa: F722
+    def to_tensor_4x4(self) -> Float[torch.Tensor, "... num_nodes 4 4"]:
         """Converts a transformation to a homogeneous transformation tensor.
 
         Returns:
@@ -1129,7 +1164,7 @@ class Rigid:
         return tensor
 
     @staticmethod
-    def from_tensor_4x4(t: Float[torch.Tensor, "... num_nodes 4 4"]) -> "Rigid":  # noqa: F722
+    def from_tensor_4x4(t: Float[torch.Tensor, "... num_nodes 4 4"]) -> "Rigid":
         """Constructs a transformation from a homogeneous transformation tensor.
 
         Args:
@@ -1145,7 +1180,7 @@ class Rigid:
 
         return Rigid(rots, trans)
 
-    def to_tensor_7(self) -> Float[torch.Tensor, "... num_nodes 7"]:  # noqa: F722
+    def to_tensor_7(self) -> Float[torch.Tensor, "... num_nodes 7"]:
         """Converts a transformation to a tensor with 7 final columns, four for the quaternion
         followed by three for the translation.
 
@@ -1160,7 +1195,8 @@ class Rigid:
 
     @staticmethod
     def from_tensor_7(
-        t: Float[torch.Tensor, "... num_nodes 7"], normalize_quats: bool = False  # noqa: F722
+        t: Float[torch.Tensor, "... num_nodes 7"],
+        normalize_quats: bool = False,
     ) -> "Rigid":
         if t.shape[-1] != 7:
             raise ValueError("Incorrectly shaped input tensor")
