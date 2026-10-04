@@ -21,7 +21,7 @@ import math
 from scipy.stats import truncnorm
 import torch.nn as nn
 from typing import Optional, Callable, List, Sequence
-from src.data.rigid_utils import Rigid
+from rnabpflow.data.rigid_utils import Rigid
 
 def permute_final_dims(tensor: torch.Tensor, inds: List[int]):
     zero_index = -1 * len(inds)

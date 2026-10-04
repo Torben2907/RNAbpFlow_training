@@ -3,3 +3,9 @@
 /outputs
 /Feature
 /metadata
+
+__pycache__/
+
+*.egg-info/
+
+.vscode/

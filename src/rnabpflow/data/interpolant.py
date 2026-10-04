@@ -1,6 +1,6 @@
 import torch, copy
-from src.data import so3_utils
-from src.data import utils as du
+from rnabpflow.data import so3_utils
+from rnabpflow.data import utils as du
 
 from scipy.spatial.transform import Rotation
 from scipy.optimize import linear_sum_assignment

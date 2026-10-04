@@ -5,7 +5,7 @@ https://github.com/microsoft/protein-frame-flow/blob/main/models/edge_embedder.p
 
 import torch
 from torch import nn
-from src.models import utils
+from rnabpflow.models import utils
 
 class EdgeEmbedder(nn.Module):
 

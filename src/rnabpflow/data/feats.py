@@ -19,9 +19,9 @@ import torch
 import torch.nn as nn
 from typing import Dict
 
-import src.data.base_constants as rc
-from src.data.rigid_utils import Rotation, Rigid
-from src.data.tensor_utils import (
+import rnabpflow.data.base_constants as rc
+from rnabpflow.data.rigid_utils import Rotation, Rigid
+from rnabpflow.data.tensor_utils import (
     batched_gather,
 )
 

@@ -13,15 +13,15 @@ import logging
 from pytorch_lightning import LightningModule
 from torch import nn
 
-from src.models.flow_model import FlowModel
-from src.models import utils as mu
-from src.data.interpolant import Interpolant 
-from src.data import utils as du
-from src.data import all_atom as rna_all_atom
-from src.data import so3_utils
+from rnabpflow.models.flow_model import FlowModel
+from rnabpflow.models import utils as mu
+from rnabpflow.data.interpolant import Interpolant 
+from rnabpflow.data import utils as du
+from rnabpflow.data import all_atom as rna_all_atom
+from rnabpflow.data import so3_utils
 import torch.nn.functional as F
-from src.data.rigid_utils import Rigid,Rotation
-from src.data.contacts import random_mask_tokens
+from rnabpflow.data.rigid_utils import Rigid,Rotation
+from rnabpflow.data.contacts import random_mask_tokens
 
 torch.autograd.set_detect_anomaly(True)
 

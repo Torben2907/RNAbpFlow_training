@@ -15,9 +15,9 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from src.data.pdb_na_datamodule_base import PDBNABaseDataModule
-from src.models.flow_module import FlowModule
-import src.utils as eu
+from rnabpflow.data.pdb_na_datamodule_base import PDBNABaseDataModule
+from rnabpflow.models.flow_module import FlowModule
+import rnabpflow.utils as eu
 #import wandb
 
 log = eu.get_pylogger(__name__)

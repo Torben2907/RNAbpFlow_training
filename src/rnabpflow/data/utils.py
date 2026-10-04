@@ -11,12 +11,13 @@ import collections
 import string
 import pickle
 import os
+from rnabpflow.data import nucleotide_constants, protein_constants
 import torch.nn.functional as F
 import torch
 from torch_scatter import scatter_add, scatter
 from Bio import PDB
 
-from src.data import protein_constants, nucleotide_constants, rigid_utils as ru
+from rnabpflow.data import rigid_utils as ru
 
 Rigid = ru.Rigid
 

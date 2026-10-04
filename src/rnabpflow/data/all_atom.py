@@ -18,19 +18,19 @@ import torch
 import torch.nn as nn
 from typing import Optional, Tuple
 
-from src.data.base_constants import (
+from rnabpflow.data.base_constants import (
     restype_rigid_group_default_frame,
     restype_atom23_to_rigid_group,
     restype_atom23_mask,
     restype_atom23_rigid_group_positions,
 )
 
-from src.data.feats import (
+from rnabpflow.data.feats import (
     frames_and_literature_positions_to_atom23_pos,
     torsion_angles_to_frames,
 )
 
-from src.data.rigid_utils import Rotation, Rigid
+from rnabpflow.data.rigid_utils import Rotation, Rigid
 
 def to_atom23_rna(trans, rots, aatype, torsions=None):
 

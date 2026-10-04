@@ -11,11 +11,11 @@ from beartype.typing import Optional
 from omegaconf import DictConfig
 from torch.utils.data import Dataset
 
-from src.data import data_transforms
-from src.data import utils as du
-from src.data import rigid_utils
+from rnabpflow.data import data_transforms
+from rnabpflow.data import utils as du
+from rnabpflow.data import rigid_utils
 
-from src.data.contacts import make_contact_tokens
+from rnabpflow.data.contacts import make_contact_tokens
 
 NUM_NA_RESIDUE_ATOMS = 23
 
@@ -123,6 +123,7 @@ class PDBNABaseDataset(Dataset):
         pdb_name = processed_file_path.split('/')[-2]
 
         current_directory = os.path.dirname(os.path.abspath(__file__))
+        current_directory = os.path.dirname(current_directory)
         current_directory = os.path.dirname(current_directory)
         current_directory = os.path.dirname(current_directory)
 

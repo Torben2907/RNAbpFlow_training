@@ -7,7 +7,7 @@ import math
 import torch
 from torch.nn import functional as F
 import numpy as np
-from src.data import utils as du
+from rnabpflow.data import utils as du
 
 def calc_distogram(pos, min_bin, max_bin, num_bins):
     dists_2d = torch.linalg.norm(

@@ -5,13 +5,14 @@ Code adapted from
 https://github.com/microsoft/protein-frame-flow/blob/main/models/flow_model.py
 """
 
+from rnabpflow.models import ipa_pytorch
 import torch
 from torch import Tensor, nn
 
-from src.models.node_embedder import NodeEmbedder
-from src.models.edge_embedder import EdgeEmbedder
-from src.models import ipa_pytorch, torsion_net
-from src.data import utils as du
+from rnabpflow.models.node_embedder import NodeEmbedder
+from rnabpflow.models.edge_embedder import EdgeEmbedder
+from rnabpflow.models import torsion_net
+from rnabpflow.data import utils as du
 
 class FlowModel(nn.Module):
 

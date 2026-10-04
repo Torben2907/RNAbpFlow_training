@@ -8,7 +8,7 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data.distributed import DistributedSampler, dist
 from torch.utils.data import DataLoader
 
-from src.data.pdb_na_dataset_base import PDBNABaseDataset
+from rnabpflow.data.pdb_na_dataset_base import PDBNABaseDataset
 
 class PDBNABaseDataModule(LightningDataModule):
     def __init__(self, data_cfg, inference_cfg=None):
