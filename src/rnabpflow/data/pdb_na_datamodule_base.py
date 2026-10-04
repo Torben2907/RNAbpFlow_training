@@ -8,10 +8,11 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data.distributed import DistributedSampler, dist
 from torch.utils.data import DataLoader
 
+from rnabpflow.config.hydra_schema import DataConfig
 from rnabpflow.data.pdb_na_dataset_base import PDBNABaseDataset
 
 class PDBNABaseDataModule(LightningDataModule):
-    def __init__(self, data_cfg, inference_cfg=None):
+    def __init__(self, data_cfg: DataConfig, inference_cfg=None):
         super().__init__()
         self.save_hyperparameters(logger=False)
 

@@ -15,6 +15,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
+from rnabpflow.config.hydra_schema import HydraConfig
 from rnabpflow.data.pdb_na_datamodule_base import PDBNABaseDataModule
 from rnabpflow.models.flow_module import FlowModule
 import rnabpflow.utils as eu
@@ -24,7 +25,7 @@ log = eu.get_pylogger(__name__)
 torch.set_float32_matmul_precision('high')
 
 class Experiment:
-    def __init__(self, *, cfg: DictConfig):
+    def __init__(self, *, cfg: HydraConfig):
         self._cfg = cfg
         self._data_cfg = cfg.data_cfg
         self._exp_cfg = cfg.experiment
@@ -85,7 +86,7 @@ class Experiment:
 
 
 @hydra.main(version_base=None, config_path="./configs", config_name="config")
-def main(cfg: DictConfig):
+def main(cfg: HydraConfig):
 
     print("csv_path =", cfg.data_cfg.csv_path)
     exp = Experiment(cfg=cfg)

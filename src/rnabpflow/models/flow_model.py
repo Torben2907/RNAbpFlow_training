@@ -5,6 +5,7 @@ Code adapted from
 https://github.com/microsoft/protein-frame-flow/blob/main/models/flow_model.py
 """
 
+from rnabpflow.config.hydra_schema import ModelConfig
 from rnabpflow.models import ipa_pytorch
 import torch
 from torch import Tensor, nn
@@ -16,7 +17,7 @@ from rnabpflow.data import utils as du
 
 class FlowModel(nn.Module):
 
-    def __init__(self, model_conf):
+    def __init__(self, model_conf: ModelConfig):
         super().__init__()
         self._model_conf = model_conf
         self._ipa_conf = model_conf.ipa

@@ -13,6 +13,7 @@ import logging
 from pytorch_lightning import LightningModule
 from torch import nn
 
+from rnabpflow.config.hydra_schema import HydraConfig
 from rnabpflow.models.flow_model import FlowModel
 from rnabpflow.models import utils as mu
 from rnabpflow.data.interpolant import Interpolant 
@@ -26,7 +27,7 @@ from rnabpflow.data.contacts import random_mask_tokens
 torch.autograd.set_detect_anomaly(True)
 
 class FlowModule(LightningModule):
-    def __init__(self, cfg, folding_cfg=None):
+    def __init__(self, cfg: HydraConfig, folding_cfg=None):
         super().__init__()
         self._print_logger = logging.getLogger(__name__)
         self._exp_cfg = cfg.experiment
