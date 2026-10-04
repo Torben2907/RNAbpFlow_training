@@ -10,6 +10,7 @@ from torch import Tensor, nn
 
 from rnabpflow.config.hydra_schema import ModelConfig
 from rnabpflow.data import utils as du
+from rnabpflow.data.rigid_utils import Rigid
 from rnabpflow.models import ipa_pytorch, torsion_net
 from rnabpflow.models.edge_embedder import EdgeEmbedder
 from rnabpflow.models.node_embedder import NodeEmbedder
@@ -84,10 +85,10 @@ class FlowModel(nn.Module):
         )
         self.ipa_dropout = nn.Dropout(self.dropout_rate)
 
-    def rigids_ang_to_nm(self, x):
+    def rigids_ang_to_nm(self, x: Rigid) -> Rigid:
         return x.apply_trans_fn(lambda x: x * du.ANG_TO_NM_SCALE)
 
-    def rigids_nm_to_ang(self, x):
+    def rigids_nm_to_ang(self, x: Rigid) -> Rigid:
         return x.apply_trans_fn(lambda x: x * du.NM_TO_ANG_SCALE)
 
     def forward(self, input_feats: dict[str, Tensor]) -> dict[str, Tensor]:
