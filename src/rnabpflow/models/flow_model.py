@@ -90,7 +90,7 @@ class FlowModel(nn.Module):
     def rigids_nm_to_ang(self, x):
         return x.apply_trans_fn(lambda x: x * du.NM_TO_ANG_SCALE)
 
-    def forward(self, input_feats: Tensor) -> Tensor:
+    def forward(self, input_feats: dict[str, Tensor]) -> dict[str, Tensor]:
         node_mask = input_feats["res_mask"]
         edge_mask = node_mask[:, None] * node_mask[:, :, None]
         continuous_t = input_feats["t"]
