@@ -55,7 +55,7 @@ class FlowModule(LightningModule):
 
         trainer = self.trainer
 
-    def model_step(self, noisy_batch):
+    def model_step(self, noisy_batch: dict[str, Tensor]) -> dict[str, Tensor]:
         """
         Params:
             noisy_batch (dict) : dictionary of tensors corresponding to corrupted Frame objects
@@ -117,7 +117,7 @@ class FlowModule(LightningModule):
         )
 
         # Model output predictions.
-        model_output = self.model(noisy_batch)
+        model_output: dict[str, Tensor] = self.model(noisy_batch)
         pred_trans_1 = model_output["pred_trans"]
         pred_rotmats_1 = model_output["pred_rotmats"]
         pred_torsions_1 = model_output["pred_torsions"].reshape(
@@ -162,6 +162,13 @@ class FlowModule(LightningModule):
             token_logits[token_mask],
             tokens[token_mask],
         )
+
+        # Token accuracy 
+        with torch.no_grad(): 
+            pred = token_logits.argmax(dim=-1)
+            token_accuracy = (pred[token_mask] == tokens[token_mask]).float().mean()
+
+        self._log_scalar("train/token_accuracy", token_accuracy, batch_size=num_batch)
 
         gt_flat_atoms = gt_bb_atoms2.reshape([num_batch, num_res, 3])
         gt_pair_dists = torch.linalg.norm(
@@ -280,7 +287,7 @@ class FlowModule(LightningModule):
         def extract_scalar(val):
             if isinstance(val, dict):
                 if len(val) == 1:
-                    return list(val.values())[0]  # Return the first value in the dict
+                    return next(iter(val.values()))  # Return the first value in the dict
                 else:
                     raise ValueError("Dictionary has more than one value; cannot log.")
             elif isinstance(val, np.ndarray):
