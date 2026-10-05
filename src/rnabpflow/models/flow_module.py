@@ -13,7 +13,7 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from pytorch_lightning import LightningModule
-from torch import nn
+from torch import Tensor, nn
 
 from rnabpflow.config.hydra_schema import HydraConfig
 from rnabpflow.data import all_atom as rna_all_atom
@@ -43,8 +43,8 @@ class FlowModule(LightningModule):
         self._sample_write_dir = self._exp_cfg.checkpointer.dirpath
         os.makedirs(self._sample_write_dir, exist_ok=True)
 
-        self.validation_epoch_metrics = []
-        self.validation_epoch_samples = []
+        self.validation_epoch_metrics: list[pd.DataFrame] = []
+        self.validation_epoch_samples: list[Tensor] = []
         self.save_hyperparameters()
 
     def on_train_start(self):
