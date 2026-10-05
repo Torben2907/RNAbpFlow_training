@@ -125,6 +125,7 @@ class TrainingConfig:
     aux_loss_t_pass: float = MISSING
     tors_loss_scale: float = MISSING
     token_loss_weight: float = MISSING
+    token_mask_probability: float = MISSING
 
 
 @dataclass

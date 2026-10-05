@@ -87,6 +87,7 @@ experiment:
     aux_loss_t_pass: 0.25
     tors_loss_scale: 1.0
     token_loss_weight: 1.0
+    token_mask_probability: 0.2
   wandb:
     name: "RNA3DB"
     project: "train"
