@@ -56,7 +56,7 @@ class InterpolantConfig:
 
 
 @dataclass
-class NodeConfig:
+class NodeEmbedderConfig:
     c_s: int = MISSING
     c_pos_emb: int = MISSING
     c_timestep_emb: int = MISSING
@@ -67,7 +67,7 @@ class NodeConfig:
 
 
 @dataclass
-class EdgeConfig:
+class EdgeEmbedderConfig:
     single_bias_transition_n: int = MISSING
     c_s: int = MISSING
     c_p: int = MISSING
@@ -99,8 +99,8 @@ class ModelConfig:
     node_embed_size: int = MISSING
     edge_embed_size: int = MISSING
     symmetric: bool = MISSING
-    node_features: NodeConfig = MISSING
-    edge_features: EdgeConfig = MISSING
+    node_features: NodeEmbedderConfig = MISSING
+    edge_features: EdgeEmbedderConfig = MISSING
     ipa: IPAConfig = MISSING
 
 

@@ -8,12 +8,13 @@ https://github.com/microsoft/protein-frame-flow/blob/main/models/node_embedder.p
 import torch
 from torch import Tensor, nn
 
+from rnabpflow.config.hydra_schema import NodeEmbedderConfig
 from rnabpflow.data.contacts import NUM_TOKEN_STATES
 from rnabpflow.models import utils
 
 
 class NodeEmbedder(nn.Module):
-    def __init__(self, module_cfg):
+    def __init__(self, module_cfg: NodeEmbedderConfig):
         super().__init__()
         self._cfg = module_cfg
         self.c_s = self._cfg.c_s
