@@ -3,7 +3,9 @@ import copy
 import torch
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.transform import Rotation
+from torch import Tensor
 
+from rnabpflow.config.hydra_schema import InterpolantConfig
 from rnabpflow.data import so3_utils
 from rnabpflow.data import utils as du
 
@@ -34,7 +36,7 @@ def _rots_diffuse_mask(rotmats_t, rotmats_1, diffuse_mask):
 
 
 class Interpolant:
-    def __init__(self, cfg):
+    def __init__(self, cfg: InterpolantConfig):
         self._cfg = cfg
         self._rots_cfg = cfg.rots
         self._trans_cfg = cfg.trans
@@ -116,7 +118,7 @@ class Interpolant:
         )
         return _rots_diffuse_mask(rotmats_t, rotmats_1, res_mask)
 
-    def corrupt_batch(self, batch):
+    def corrupt_batch(self, batch: dict[str, Tensor]) -> dict[str, Tensor]:
         """
         Params:
             batch (dict) : a dictionary where each key is a tensor name and each value is the corresponding tensor of Rigid objects (representing the RNA frames).

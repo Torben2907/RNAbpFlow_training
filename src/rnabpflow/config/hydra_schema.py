@@ -17,12 +17,12 @@ class DataConfig:
     samples_per_eval_length: int = MISSING
     num_eval_lengths: int = MISSING
     batch_size: int = MISSING
-    num_batch_size: int = MISSING
+    max_batch_size: int = MISSING
     max_squared_res: int = MISSING
     max_num_res_squared: int = MISSING
     eval_batch_size: int = MISSING
     num_workers: int = MISSING
-    prefatch_factor: int = MISSING
+    prefetch_factor: int = MISSING
     contact_distance_threshold: float = MISSING
     contact_minimum_sequence_separation: int = MISSING
 
@@ -114,7 +114,7 @@ class BatchOptimalTransportConfig:
 
 @dataclass
 class TrainingConfig:
-    min_plddt_mask: int = MISSING
+    min_plddt_mask: int | None = MISSING
     loss: str = MISSING
     bb_atom_scale: float = MISSING
     trans_scale: float = MISSING
@@ -171,7 +171,7 @@ class ExperimentConfig:
     finetune: bool = MISSING
     num_devices: int = MISSING
     warm_start: str | None = MISSING
-    warm_start_config_override: bool = MISSING
+    warm_start_cfg_override: bool = MISSING
     use_swa: bool = MISSING
 
     batch_ot: BatchOptimalTransportConfig = MISSING

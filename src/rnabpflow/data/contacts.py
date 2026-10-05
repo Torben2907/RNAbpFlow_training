@@ -16,9 +16,9 @@ def make_contact_tokens(
 ) -> Tensor:
 
     d = torch.cdist(c1_positions, c1_positions)
-    n = d.shape[-1]
+    N = d.shape[-1]
 
-    idx = torch.arange(n, device=d.device)
+    idx = torch.arange(N, device=d.device)
     seq_sep = (idx[:, None] - idx[None, :]).abs()
 
     contact = (
