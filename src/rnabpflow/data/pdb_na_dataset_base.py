@@ -13,6 +13,7 @@ from beartype.typing import Optional
 from omegaconf import DictConfig
 from torch.utils.data import Dataset
 
+from rnabpflow.config.hydra_schema import DataConfig
 from rnabpflow.data import data_transforms, rigid_utils
 from rnabpflow.data import utils as du
 from rnabpflow.data.contacts import make_contact_tokens
@@ -23,7 +24,7 @@ NUM_NA_RESIDUE_ATOMS = 23
 class PDBNABaseDataset(Dataset):
     def __init__(
         self,
-        data_conf,
+        data_conf: DataConfig,
         is_training: bool,
         filter_eval_split: bool = False,
         inference_cfg: Optional[DictConfig] = None,

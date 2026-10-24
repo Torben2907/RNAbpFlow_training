@@ -126,6 +126,7 @@ class TrainingConfig:
     tors_loss_scale: float = MISSING
     token_loss_weight: float = MISSING
     token_mask_probability: float = MISSING
+    smoke_test_seed: int | None = None
 
 
 @dataclass

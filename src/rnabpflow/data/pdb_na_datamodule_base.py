@@ -44,11 +44,15 @@ class PDBNABaseDataModule(LightningDataModule):
 
     def train_dataloader(self, rank=None, num_replicas=None):
         num_workers = self.data_cfg.num_workers
+        # Lightning's overfit_batches takes the first batch of every epoch, so the
+        # batch order must not be reshuffled between epochs.
+        overfit = self.trainer is not None and self.trainer.overfit_batches > 0
         lb = RNALengthBatcher(
             sampler_cfg=self.data_cfg,
             metadata_csv=self.data_train.csv,
             rank=rank,
             num_replicas=num_replicas,
+            freeze_epoch=overfit,
         )
         dl = DataLoader(
             self.data_train,
@@ -56,7 +60,7 @@ class PDBNABaseDataModule(LightningDataModule):
             num_workers=num_workers,
             prefetch_factor=None if num_workers == 0 else self.data_cfg.prefetch_factor,
             pin_memory=False,
-            persistent_workers=True if num_workers > 0 else False,
+            persistent_workers=num_workers > 0,
         )
 
         # for batch_idx, batch in enumerate(dl):
@@ -104,12 +108,13 @@ https://github.com/microsoft/protein-frame-flow/blob/main/data/pdb_dataloader.py
 class RNALengthBatcher:
     def __init__(
         self,
-        sampler_cfg,
+        sampler_cfg: DataConfig,
         metadata_csv,
         seed=123,
         shuffle=True,
         num_replicas=None,
         rank=None,
+        freeze_epoch=False,
     ):
         super().__init__()
         if num_replicas is None:
@@ -130,6 +135,7 @@ class RNALengthBatcher:
         self.seed = seed
         self.shuffle = shuffle
         self.epoch = 0
+        self.freeze_epoch = freeze_epoch
         self.max_batch_size = self._sampler_cfg.max_batch_size
 
     def _replica_epoch_batches(self):
@@ -180,7 +186,8 @@ class RNALengthBatcher:
 
     def __iter__(self):
         self._create_batches()
-        self.epoch += 1
+        if not self.freeze_epoch:
+            self.epoch += 1
         return iter(self.sample_order)
 
     def __len__(self):

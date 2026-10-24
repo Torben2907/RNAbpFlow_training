@@ -9,3 +9,10 @@ __pycache__/
 *.egg-info/
 
 .vscode/
+
+.cache/
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+wandb/

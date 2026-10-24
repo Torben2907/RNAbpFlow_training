@@ -88,12 +88,15 @@ experiment:
     tors_loss_scale: 1.0
     token_loss_weight: 1.0
     token_mask_probability: 0.2
+    # If set, reseed before every training step so t, noise, token mask and dropout
+    # are identical each step (use together with trainer.overfit_batches=1).
+    smoke_test_seed: null
   wandb:
     name: "RNA3DB"
-    project: "train"
+    project: "RNAbpFlow_train"
     save_code: false
     tags: []
-    mode: "offline" # can also save to `offline`
+    mode: "online" # can also save to `offline`
   optimizer:
     lr: 0.0001
   trainer:

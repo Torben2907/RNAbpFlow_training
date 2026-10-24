@@ -9,15 +9,14 @@ import hydra
 import torch
 from omegaconf import OmegaConf
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
 
 # from pytorch_lightning.trainer import Trainer
 import rnabpflow.utils as eu
 from rnabpflow.config.hydra_schema import HydraConfig
 from rnabpflow.data.pdb_na_datamodule_base import PDBNABaseDataModule
 from rnabpflow.models.flow_module import FlowModule
-
-# import wandb
 
 log = eu.get_pylogger(__name__)
 torch.set_float32_matmul_precision("high")
@@ -49,10 +48,14 @@ class Experiment:
         cfg_dict = OmegaConf.to_container(self._cfg, resolve=True)
         flat_cfg = dict(eu.flatten_dict(cfg_dict))
 
+        logger = WandbLogger(**cfg_dict["experiment"]["wandb"])
+        logger.log_hyperparams(flat_cfg)
+        callbacks.append(LearningRateMonitor(logging_interval="step"))
+
         trainer = Trainer(
             **self._exp_cfg.trainer,
             callbacks=callbacks,
-            logger=False,
+            logger=logger,
             use_distributed_sampler=False,
             enable_progress_bar=True,
             enable_model_summary=True,

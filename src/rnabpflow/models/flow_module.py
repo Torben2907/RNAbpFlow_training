@@ -163,12 +163,14 @@ class FlowModule(LightningModule):
             tokens[token_mask],
         )
 
-        # Token accuracy 
-        with torch.no_grad(): 
+        # Token accuracy
+        with torch.no_grad():
             pred = token_logits.argmax(dim=-1)
             token_accuracy = (pred[token_mask] == tokens[token_mask]).float().mean()
 
-        self._log_scalar("train/token_accuracy", token_accuracy, batch_size=num_batch)
+        self._log_scalar(
+            "train/token_accuracy", token_accuracy, on_step=True, batch_size=num_batch
+        )
 
         gt_flat_atoms = gt_bb_atoms2.reshape([num_batch, num_res, 3])
         gt_pair_dists = torch.linalg.norm(
@@ -214,7 +216,7 @@ class FlowModule(LightningModule):
         gtss = noisy_batch["ss"]
         bceloss = nn.BCEWithLogitsLoss(reduction="none")
 
-        ss2dloss = bceloss(predicted_logits, gtss)
+        ss2dloss: Tensor = bceloss(predicted_logits, gtss)
         ss2dloss = ss2dloss.mean(dim=(1, 2))
         ss2dloss = ss2dloss.sum(dim=-1)
 
@@ -287,7 +289,9 @@ class FlowModule(LightningModule):
         def extract_scalar(val):
             if isinstance(val, dict):
                 if len(val) == 1:
-                    return next(iter(val.values()))  # Return the first value in the dict
+                    return next(
+                        iter(val.values())
+                    )  # Return the first value in the dict
                 else:
                     raise ValueError("Dictionary has more than one value; cannot log.")
             elif isinstance(val, np.ndarray):
@@ -364,8 +368,19 @@ class FlowModule(LightningModule):
         using the core and auxiliary losses computed in `model_step`.
         """
         step_start_time = time.time()
+        smoke_test_seed = self._exp_cfg.training.get("smoke_test_seed")
+        if smoke_test_seed is not None:
+            random.seed(smoke_test_seed)
+            np.random.seed(smoke_test_seed)
+            torch.manual_seed(smoke_test_seed)
         self.interpolant.set_device(batch["res_mask"].device)
         noisy_batch = self.interpolant.corrupt_batch(batch)
+
+        # if self.global_step < 10:
+        #     print(
+        #         f"step={self.global_step}, "
+        #         f"t={noisy_batch['t'].detach().cpu().flatten().tolist()}"
+        #     )
 
         if self._interpolant_cfg.self_condition and random.random() > 0.5:
             with torch.no_grad():
@@ -378,12 +393,18 @@ class FlowModule(LightningModule):
         total_losses = {k: torch.mean(v) for k, v in batch_losses.items()}
 
         for k, v in total_losses.items():
-            self._log_scalar(f"train/{k}", v, prog_bar=False, batch_size=num_batch)
+            self._log_scalar(
+                f"train/{k}", v, on_step=True, prog_bar=False, batch_size=num_batch
+            )
 
         # Losses to track. Stratified across t.
         t = torch.squeeze(noisy_batch["t"])
         self._log_scalar(
-            "train/t", np.mean(du.to_numpy(t)), prog_bar=False, batch_size=num_batch
+            "train/t",
+            np.mean(du.to_numpy(t)),
+            on_step=True,
+            prog_bar=False,
+            batch_size=num_batch,
         )
 
         step_time = time.time() - step_start_time
@@ -394,7 +415,7 @@ class FlowModule(LightningModule):
             + total_losses["auxiliary_loss"]
             + self._exp_cfg.training.token_loss_weight * total_losses["token_loss"]
         )
-        self._log_scalar("loss", train_loss, batch_size=num_batch)
+        self._log_scalar("loss", train_loss, on_step=True, batch_size=num_batch)
 
         return train_loss
 
