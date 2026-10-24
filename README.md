@@ -1,4 +1,4 @@
-# Training Code for "Bridging discrete and continuous diffusion for RNA structure prediction"
+# Training Code for "Bridging discrete and continuous diffusion models for RNA structure prediction"
 
 ## Install
 Use [conda](https://docs.conda.io/projects/conda/en/latest/index.html) to create a virtual environment and install all dependencies of RNAbpFlow.
