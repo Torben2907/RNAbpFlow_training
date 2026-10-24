@@ -16,11 +16,15 @@ conda activate RNAbpFlow
 You can fire up a **training** run via the commands:
 
 ```python
-python3 train.py --config-name=smoke_overfit # GPUs 0,1,2,3 (from the preset)
-python3 train.py --config-name=smoke_overfit experiment.trainer.devices='[2]' # only GPU 2
-python3 train.py --config-name=train_full experiment.trainer.devices='[4,5,6,7]'
+python3 train.py run=smoke_overfit # GPUs 0,3 (from the preset)
+python3 train.py run=smoke_overfit experiment.trainer.devices='[2]' # only GPU 2
+python3 train.py run=train_full experiment.trainer.devices='[4,5,6,7]'
 python3 train.py experiment.trainer.devices=4  # a count: the first 4 GPUs
 ```
+
+The config is split into groups under `configs/` (`data/`, `interpolant/`, `model/`, `training/`,
+`trainer/`, `wandb/`, `checkpointer/`) which `configs/config.yaml` composes. Presets in `configs/run/`
+override them; a group can also be swapped from the CLI, e.g. `model=<file name without .yaml>`.
 
 Information:
 - `smoke_overfit` fill trigger a test run using only one batch of the same RNA data (used for debugging).

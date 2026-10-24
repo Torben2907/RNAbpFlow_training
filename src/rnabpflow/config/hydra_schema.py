@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from omegaconf import MISSING
 
@@ -149,7 +150,7 @@ class TrainerConfig:
     min_epochs: int = MISSING
     max_epochs: int = MISSING
     accelerator: str = MISSING
-    devices: int | list[int] = MISSING
+    devices: Any = MISSING  # int (number of GPUs) or list[int] (GPU ids); OmegaConf can't type that union
     log_every_n_steps: int = MISSING
     deterministic: bool = MISSING
     strategy: str = MISSING
