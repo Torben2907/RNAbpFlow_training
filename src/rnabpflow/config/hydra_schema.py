@@ -90,7 +90,7 @@ class IPAConfig:
     seq_tfmr_num_heads: int = MISSING
     seq_tfmr_num_layers: int = MISSING
     num_blocks: int = MISSING
-    ss: int = MISSING
+    # ss: int = MISSING
     dropout: float = MISSING
 
 
@@ -125,7 +125,7 @@ class TrainingConfig:
     aux_loss_t_pass: float = MISSING
     tors_loss_scale: float = MISSING
     token_loss_weight: float = MISSING
-    token_mask_probability: float = MISSING
+    token_mask_probability: float | None = None
     smoke_test_seed: int | None = None
 
 

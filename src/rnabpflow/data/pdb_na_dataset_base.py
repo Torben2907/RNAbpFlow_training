@@ -129,12 +129,13 @@ class PDBNABaseDataset(Dataset):
     @fn.lru_cache(maxsize=100)
     def _process_csv_row(self, processed_file_path):
         processed_feats = du.read_pkl(processed_file_path)
-        ss = processed_feats["ss"].astype(float)
-        if "ss_pred" in processed_feats:
-            ss_pred = processed_feats["ss_pred"].astype(float)
+        # Experimental secondary structure maps are no longer used.
+        # ss = processed_feats["ss"].astype(float)
+        # if "ss_pred" in processed_feats:
+        #     ss_pred = processed_feats["ss_pred"].astype(float)
         oh = processed_feats["onehot"]
 
-        ssmask = processed_feats["custom_ss_mask"].astype(int)
+        # ssmask = processed_feats["custom_ss_mask"].astype(int)
         pdb_name = processed_file_path.split("/")[-2]
 
         current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -242,16 +243,16 @@ class PDBNABaseDataset(Dataset):
         final_feats = {
             "torsion_angles_sin_cos": chain_feats["torsion_angles_sin_cos"],
             "is_na_residue_mask": processed_feats["is_na_residue_mask"],
-            "ss": ss,
+            # "ss": ss,
             "onehot": oh,
-            "ssmask": ssmask,
+            # "ssmask": ssmask,
             "aatype": nufeat["aatype"],
             "rigid_mask": nufeat["backbone_rigid_mask"],
             "rigidgroups_gt_exists": nufeat["rigidgroups_gt_exists"],
         }
 
-        if "ss_pred" in processed_feats:
-            final_feats["ss_pred"] = ss_pred
+        # if "ss_pred" in processed_feats:
+        #     final_feats["ss_pred"] = ss_pred
 
         rigids_1 = rigid_utils.Rigid.from_tensor_4x4(nufeat["rigidgroups_gt_frames"])[
             :, 0

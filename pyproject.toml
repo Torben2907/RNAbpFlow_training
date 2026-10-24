@@ -8,3 +8,7 @@ version = "0.1.0"
 
 [tool.setuptools.package-data]
 rnabpflow = ["py.typed"]
+
+[[tool.mypy.overrides]]
+module = ["tree"]
+ignore_missing_imports = true

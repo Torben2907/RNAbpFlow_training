@@ -80,9 +80,10 @@ class FlowModel(nn.Module):
             no_angles=9,
             epsilon=1e-12,
         )
-        self.linear_pair = nn.Linear(
-            self._model_conf.edge_embed_size, self._ipa_conf.ss
-        )
+        # Pair head predicting the experimental secondary structure maps (ss2D loss).
+        # self.linear_pair = nn.Linear(
+        #     self._model_conf.edge_embed_size, self._ipa_conf.ss
+        # )
         self.ipa_dropout = nn.Dropout(self.dropout_rate)
 
     def rigids_ang_to_nm(self, x: Rigid) -> Rigid:
@@ -99,10 +100,12 @@ class FlowModel(nn.Module):
         rotmats_t = input_feats["rotmats_t"]
         contact_tokens = input_feats["contact_tokens"]
 
-        if "ss_pred" in input_feats:
-            ss = input_feats["ss_pred"]
-        else:
-            ss = input_feats["ss"]
+        # Experimental secondary structure maps are no longer an input; the model is
+        # conditioned on the (partially masked) contact tokens only.
+        # if "ss_pred" in input_feats:
+        #     ss = input_feats["ss_pred"]
+        # else:
+        #     ss = input_feats["ss"]
 
         onehot = input_feats["onehot"]
 
@@ -122,8 +125,11 @@ class FlowModel(nn.Module):
 
         # Edge embeddings are:
         #
+        # init_edge_embed = self.edge_embedder(
+        #     init_node_embed, trans_t, trans_sc, edge_mask, ss
+        # )
         init_edge_embed = self.edge_embedder(
-            init_node_embed, trans_t, trans_sc, edge_mask, ss
+            init_node_embed, trans_t, trans_sc, edge_mask
         )
 
         # Initial rigids
@@ -165,7 +171,7 @@ class FlowModel(nn.Module):
 
         # predict 8 torsions
         _, pred_torsions = self.angle_pred_net(node_embed, init_node_embed)
-        pair_feat = self.linear_pair(edge_embed)
+        # pair_feat = self.linear_pair(edge_embed)
 
         curr_rigids = self.rigids_nm_to_ang(curr_rigids)
         pred_trans = curr_rigids.get_trans()
@@ -177,7 +183,7 @@ class FlowModel(nn.Module):
             "pred_torsions": pred_torsions,
             "pred_trans": pred_trans,
             "pred_rotmats": pred_rotmats,
-            "pair_feat": pair_feat,
+            # "pair_feat": pair_feat,
             "token_logits": token_logits,
             "bb_frame": curr_rigids,
         }

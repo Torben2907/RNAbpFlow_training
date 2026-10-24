@@ -30,7 +30,7 @@ def test_shapes(config: HydraConfig):
     assert output["pred_trans"].shape == (B, N, 3)
     assert output["pred_rotmats"].shape == (B, N, 3, 3)
     assert output["pred_torsions"].shape == (B, N, 9, 2)
-    assert output["pair_feat"].shape == (B, N, N, 3)
+    # assert output["pair_feat"].shape == (B, N, N, 3)
     assert output["token_logits"].shape == (B, N, 2)
 
 

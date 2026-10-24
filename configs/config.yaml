@@ -61,7 +61,7 @@ model:
     seq_tfmr_num_heads: 4
     seq_tfmr_num_layers: 2
     num_blocks: 6
-    ss: 3
+    # ss: 3  # channels of the experimental secondary structure maps (no longer used)
     dropout: 0.1
 
 experiment:
@@ -88,7 +88,9 @@ experiment:
     aux_loss_t_pass: 0.25
     tors_loss_scale: 1.0
     token_loss_weight: 1.0
-    token_mask_probability: 0.2
+    # null: draw a masking ratio r ~ U(0, 1) per example (matches iterative unmasking
+    # at inference). A float masks every token independently with that probability.
+    token_mask_probability: null
     # If set, reseed before every training step so t, noise, token mask and dropout
     # are identical each step (use together with trainer.overfit_batches=1).
     smoke_test_seed: null

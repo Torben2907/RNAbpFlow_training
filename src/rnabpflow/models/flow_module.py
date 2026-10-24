@@ -13,10 +13,13 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from pytorch_lightning import LightningModule
-from torch import Tensor, nn
+from torch import Tensor
 
 from rnabpflow.config.hydra_schema import HydraConfig
-from rnabpflow.data import all_atom as rna_all_atom
+
+# Only needed for the ss3D / ss2D losses.
+# from torch import nn
+# from rnabpflow.data import all_atom as rna_all_atom
 from rnabpflow.data import so3_utils
 from rnabpflow.data import utils as du
 from rnabpflow.data.contacts import random_mask_tokens
@@ -90,7 +93,7 @@ class FlowModule(LightningModule):
         torsions_end_index = 9
         num_torsions = torsions_end_index - torsions_start_index
 
-        C1index = [11]
+        # C1index = [11]
 
         # Ground truth labels
         gt_trans_1 = noisy_batch["trans_1"]
@@ -101,14 +104,15 @@ class FlowModule(LightningModule):
         rotmats_t = noisy_batch["rotmats_t"]
         gt_rot_vf = so3_utils.calc_rot_vf(rotmats_t, gt_rotmats_1.type(torch.float32))
 
-        gt_bb_atoms_all = rna_all_atom.to_atom23_rna(
-            gt_trans_1,
-            gt_rotmats_1,
-            noisy_batch["aatype"],
-            torsions=noisy_batch["torsion_angles_sin_cos"],
-        )
-
-        gt_bb_atoms2 = gt_bb_atoms_all[:, :, C1index]
+        # C1' atoms were only needed for the ss3D loss (experimental pair masks).
+        # gt_bb_atoms_all = rna_all_atom.to_atom23_rna(
+        #     gt_trans_1,
+        #     gt_rotmats_1,
+        #     noisy_batch["aatype"],
+        #     torsions=noisy_batch["torsion_angles_sin_cos"],
+        # )
+        #
+        # gt_bb_atoms2 = gt_bb_atoms_all[:, :, C1index]
 
         # Timestep used for normalization.
         t = noisy_batch["t"]
@@ -126,16 +130,16 @@ class FlowModule(LightningModule):
         token_logits = model_output["token_logits"]
         pred_rots_vf = so3_utils.calc_rot_vf(rotmats_t, pred_rotmats_1)
 
-        pred_bb_atoms_all = rna_all_atom.to_atom23_rna(
-            pred_trans_1,
-            pred_rotmats_1,
-            noisy_batch["aatype"],
-            torsions=model_output["pred_torsions"],
-        )
-
-        pred_bb_atoms2 = pred_bb_atoms_all[:, :, C1index]
-
-        custom_pair_mask = noisy_batch["ssmask"]
+        # pred_bb_atoms_all = rna_all_atom.to_atom23_rna(
+        #     pred_trans_1,
+        #     pred_rotmats_1,
+        #     noisy_batch["aatype"],
+        #     torsions=model_output["pred_torsions"],
+        # )
+        #
+        # pred_bb_atoms2 = pred_bb_atoms_all[:, :, C1index]
+        #
+        # custom_pair_mask = noisy_batch["ssmask"]
 
         # Translation VF loss
         trans_error = (
@@ -172,53 +176,55 @@ class FlowModule(LightningModule):
             "train/token_accuracy", token_accuracy, on_step=True, batch_size=num_batch
         )
 
-        gt_flat_atoms = gt_bb_atoms2.reshape([num_batch, num_res, 3])
-        gt_pair_dists = torch.linalg.norm(
-            gt_flat_atoms[:, :, None, :] - gt_flat_atoms[:, None, :, :], dim=-1
-        )
-        pred_flat_atoms = pred_bb_atoms2.reshape([num_batch, num_res, 3])
-        pred_pair_dists = torch.linalg.norm(
-            pred_flat_atoms[:, :, None, :] - pred_flat_atoms[:, None, :, :], dim=-1
-        )
-
-        flat_loss_mask = torch.tile(loss_mask[:, :, None], (1, 1, 1))
-        flat_loss_mask = flat_loss_mask.reshape([num_batch, num_res])
-        flat_res_mask = torch.tile(loss_mask[:, :, None], (1, 1, 1))
-        flat_res_mask = flat_res_mask.reshape([num_batch, num_res])
-
-        gt_pair_dists = gt_pair_dists * flat_loss_mask[..., None]
-        pred_pair_dists = pred_pair_dists * flat_loss_mask[..., None]
-
-        pair_dist = (gt_pair_dists - pred_pair_dists) ** 2
-
-        pair_dist_mask1 = (
-            flat_loss_mask[..., None] * flat_res_mask[:, None, :]
-        ) * custom_pair_mask[:, :, :, 0]
-        pair_dist_mask2 = (
-            flat_loss_mask[..., None] * flat_res_mask[:, None, :]
-        ) * custom_pair_mask[:, :, :, 1]
-        pair_dist_mask3 = (
-            flat_loss_mask[..., None] * flat_res_mask[:, None, :]
-        ) * custom_pair_mask[:, :, :, 2]
-
-        ss3D_loss_1 = torch.sum(pair_dist * pair_dist_mask1, dim=(1, 2))
-        ss3D_loss_2 = torch.sum(pair_dist * pair_dist_mask2, dim=(1, 2))
-        ss3D_loss_3 = torch.sum(pair_dist * pair_dist_mask3, dim=(1, 2))
-
-        ss3D_loss = (ss3D_loss_1 + ss3D_loss_2 + ss3D_loss_3) / 3
-        ss3D_loss /= (
-            (torch.sum(pair_dist_mask1, dim=(1, 2)))
-            + (torch.sum(pair_dist_mask2, dim=(1, 2)))
-            + (torch.sum(pair_dist_mask3, dim=(1, 2)))
-        )
-
-        predicted_logits = model_output["pair_feat"]
-        gtss = noisy_batch["ss"]
-        bceloss = nn.BCEWithLogitsLoss(reduction="none")
-
-        ss2dloss: Tensor = bceloss(predicted_logits, gtss)
-        ss2dloss = ss2dloss.mean(dim=(1, 2))
-        ss2dloss = ss2dloss.sum(dim=-1)
+        # ss3D / ss2D losses depend on the experimental secondary structure maps
+        # (ssmask / ss) and are no longer used.
+        # gt_flat_atoms = gt_bb_atoms2.reshape([num_batch, num_res, 3])
+        # gt_pair_dists = torch.linalg.norm(
+        #     gt_flat_atoms[:, :, None, :] - gt_flat_atoms[:, None, :, :], dim=-1
+        # )
+        # pred_flat_atoms = pred_bb_atoms2.reshape([num_batch, num_res, 3])
+        # pred_pair_dists = torch.linalg.norm(
+        #     pred_flat_atoms[:, :, None, :] - pred_flat_atoms[:, None, :, :], dim=-1
+        # )
+        #
+        # flat_loss_mask = torch.tile(loss_mask[:, :, None], (1, 1, 1))
+        # flat_loss_mask = flat_loss_mask.reshape([num_batch, num_res])
+        # flat_res_mask = torch.tile(loss_mask[:, :, None], (1, 1, 1))
+        # flat_res_mask = flat_res_mask.reshape([num_batch, num_res])
+        #
+        # gt_pair_dists = gt_pair_dists * flat_loss_mask[..., None]
+        # pred_pair_dists = pred_pair_dists * flat_loss_mask[..., None]
+        #
+        # pair_dist = (gt_pair_dists - pred_pair_dists) ** 2
+        #
+        # pair_dist_mask1 = (
+        #     flat_loss_mask[..., None] * flat_res_mask[:, None, :]
+        # ) * custom_pair_mask[:, :, :, 0]
+        # pair_dist_mask2 = (
+        #     flat_loss_mask[..., None] * flat_res_mask[:, None, :]
+        # ) * custom_pair_mask[:, :, :, 1]
+        # pair_dist_mask3 = (
+        #     flat_loss_mask[..., None] * flat_res_mask[:, None, :]
+        # ) * custom_pair_mask[:, :, :, 2]
+        #
+        # ss3D_loss_1 = torch.sum(pair_dist * pair_dist_mask1, dim=(1, 2))
+        # ss3D_loss_2 = torch.sum(pair_dist * pair_dist_mask2, dim=(1, 2))
+        # ss3D_loss_3 = torch.sum(pair_dist * pair_dist_mask3, dim=(1, 2))
+        #
+        # ss3D_loss = (ss3D_loss_1 + ss3D_loss_2 + ss3D_loss_3) / 3
+        # ss3D_loss /= (
+        #     (torch.sum(pair_dist_mask1, dim=(1, 2)))
+        #     + (torch.sum(pair_dist_mask2, dim=(1, 2)))
+        #     + (torch.sum(pair_dist_mask3, dim=(1, 2)))
+        # )
+        #
+        # predicted_logits = model_output["pair_feat"]
+        # gtss = noisy_batch["ss"]
+        # bceloss = nn.BCEWithLogitsLoss(reduction="none")
+        #
+        # ss2dloss: Tensor = bceloss(predicted_logits, gtss)
+        # ss2dloss = ss2dloss.mean(dim=(1, 2))
+        # ss2dloss = ss2dloss.sum(dim=-1)
 
         # Torsion angles loss
         pred_torsions_1 = pred_torsions_1.reshape(num_batch, num_res, num_torsions, 2)
@@ -235,9 +241,10 @@ class FlowModule(LightningModule):
         )
 
         se3_vf_loss = trans_loss + rots_vf_loss
-        auxiliary_loss = (ss3D_loss + ss2dloss + tors_loss) * (
-            t[:, 0] > training_cfg.aux_loss_t_pass
-        )
+        # auxiliary_loss = (ss3D_loss + ss2dloss + tors_loss) * (
+        #     t[:, 0] > training_cfg.aux_loss_t_pass
+        # )
+        auxiliary_loss = tors_loss * (t[:, 0] > training_cfg.aux_loss_t_pass)
         auxiliary_loss *= self._exp_cfg.training.aux_loss_weight
 
         if torch.isnan(auxiliary_loss).any():
@@ -251,8 +258,8 @@ class FlowModule(LightningModule):
 
         return {
             "trans_loss": trans_loss,
-            "ss3D_loss": ss3D_loss,
-            "ss2D_loss": ss2dloss,
+            # "ss3D_loss": ss3D_loss,
+            # "ss2D_loss": ss2dloss,
             "auxiliary_loss": auxiliary_loss,
             "rots_vf_loss": rots_vf_loss,
             "se3_vf_loss": se3_vf_loss,
@@ -346,8 +353,8 @@ class FlowModule(LightningModule):
         on_epoch=True,
         prog_bar=True,
         batch_size=None,
-        sync_dist=False,
-        rank_zero_only=True,
+        sync_dist=True,
+        rank_zero_only=False,
     ):
         if sync_dist and rank_zero_only:
             raise ValueError("Unable to sync dist when rank_zero_only=True")
@@ -367,7 +374,7 @@ class FlowModule(LightningModule):
         Performs one iteration of SE(3) flow matching and returns total training loss
         using the core and auxiliary losses computed in `model_step`.
         """
-        step_start_time = time.time()
+        # step_start_time = time.time()
         smoke_test_seed = self._exp_cfg.training.get("smoke_test_seed")
         if smoke_test_seed is not None:
             random.seed(smoke_test_seed)
@@ -407,7 +414,7 @@ class FlowModule(LightningModule):
             batch_size=num_batch,
         )
 
-        step_time = time.time() - step_start_time
+        # step_time = time.time() - step_start_time
         # self._log_scalar("train/eps", num_batch / step_time)
 
         train_loss = (
