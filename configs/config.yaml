@@ -65,6 +65,7 @@ model:
     dropout: 0.1
 
 experiment:
+  seed: 42
   finetune: False
   num_devices: 8
   warm_start: null

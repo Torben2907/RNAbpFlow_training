@@ -8,7 +8,7 @@ import os
 import hydra
 import torch
 from omegaconf import OmegaConf
-from pytorch_lightning import Trainer
+from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 
@@ -85,7 +85,7 @@ class Experiment:
 
 @hydra.main(version_base=None, config_path="./configs", config_name="config")
 def main(cfg: HydraConfig):
-
+    seed_everything(cfg.experiment.seed, workers=True)
     print("csv_path =", cfg.data_cfg.csv_path)
     exp = Experiment(cfg=cfg)
     exp.train()

@@ -260,7 +260,7 @@ class FlowModule(LightningModule):
             "token_loss": token_loss,
         }
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch: dict[str, Tensor], batch_idx):
         """
         Generates samples and computes (average) local structural metrics
         such as C4'-C4' distances, steric clashes, gyration radius.
@@ -272,10 +272,10 @@ class FlowModule(LightningModule):
         num_batch = res_mask.shape[0]
         num_res = is_na_residue_mask.sum(dim=-1).max().item()
 
-        batch_metrics = []
+        batch_metrics: list[Tensor] = []
 
-        batch_metrics = pd.DataFrame(batch_metrics)
-        self.validation_epoch_metrics.append(batch_metrics)
+        batch_metrics_df = pd.DataFrame(batch_metrics)
+        self.validation_epoch_metrics.append(batch_metrics_df)
 
     def on_validation_epoch_end(self):
         if len(self.validation_epoch_samples) > 0:
@@ -307,7 +307,7 @@ class FlowModule(LightningModule):
             elif isinstance(val, (int, float)):
                 return val  # Directly return scalar values
             else:
-                raise ValueError(f"Unsupported type for metric value: {type(val)}")
+                raise TypeError(f"Unsupported type for metric value: {type(val)}")
 
         # Assuming val_epoch_metrics is a DataFrame or similar structure
         val_epoch_metrics = pd.concat(self.validation_epoch_metrics)
@@ -332,7 +332,7 @@ class FlowModule(LightningModule):
                     batch_size=len(val_epoch_metrics),
                 )
             else:
-                raise ValueError(
+                raise TypeError(
                     f"Metric value for {metric_name} is not a scalar: {scalar_val}"
                 )
 

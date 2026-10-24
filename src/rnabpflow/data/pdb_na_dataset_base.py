@@ -270,9 +270,7 @@ class PDBNABaseDataset(Dataset):
         final_feats["rotmats_1"] = rotmats_1
         final_feats["trans_1"] = trans_1
         final_feats["torsion_angles_sin_cos"] = nufeat["torsion_angles_sin_cos"]
-
         final_feats["res_mask"] = torch.tensor(processed_feats["bb_mask"]).int()
-
         final_feats["contact_tokens"] = contact_tokens
 
         """

@@ -170,6 +170,7 @@ class CheckpointerConfig:
 
 @dataclass
 class ExperimentConfig:
+    seed: int = MISSING
     finetune: bool = MISSING
     num_devices: int = MISSING
     warm_start: str | None = MISSING
