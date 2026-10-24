@@ -1,0 +1,11 @@
+min_t: 1e-2
+rots:
+  train_schedule: linear
+  sample_schedule: exp
+  exp_rate: 10
+trans:
+  train_schedule: linear
+  sample_schedule: linear
+sampling:
+  num_timesteps: 50
+self_condition: ${model.edge_features.self_condition}

@@ -1,0 +1,17 @@
+min_plddt_mask: null
+loss: se3_vf_loss
+bb_atom_scale: 0.1
+trans_scale: 0.1
+translation_loss_weight: 2.0
+t_normalize_clip: 0.9
+rotation_loss_weights: 1.0
+aux_loss_weight: 1.0
+aux_loss_t_pass: 0.25
+tors_loss_scale: 1.0
+token_loss_weight: 1.0
+# null: draw a masking ratio r ~ U(0, 1) per example (matches iterative unmasking
+# at inference). A float masks every token independently with that probability.
+token_mask_probability: null
+# If set, reseed before every training step so t, noise, token mask and dropout
+# are identical each step (use together with trainer.overfit_batches=1).
+smoke_test_seed: null

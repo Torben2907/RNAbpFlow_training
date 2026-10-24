@@ -1,0 +1,16 @@
+csv_path: metadata/RNA3DB.csv # CSV for path and metadata to training examples
+filtering:
+  max_len: 800
+  min_len: 30
+min_t: 0.01
+samples_per_eval_length: 1
+num_eval_lengths: 1
+batch_size: 4
+max_batch_size: 4
+max_squared_res: 375_000
+max_num_res_squared: 375_000
+eval_batch_size: 1
+num_workers: 4
+prefetch_factor: 100
+contact_distance_threshold: 8.0
+contact_minimum_sequence_separation: 3

@@ -1,0 +1,12 @@
+# @package _global_
+# Full training run.
+# Usage: python3 train.py run=train_full
+data_cfg:
+  csv_path: metadata/RNA3DB_train.csv
+
+experiment:
+  trainer:
+    devices: [0, 1, 2, 3]
+  wandb:
+    project: RNAbpFlow_train
+    name: full_4gpu

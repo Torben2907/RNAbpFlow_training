@@ -1,0 +1,8 @@
+dirpath: ckpt/${experiment.wandb.project}/${experiment.wandb.name}/
+save_last: True
+save_top_k: 10
+monitor: loss
+mode: min
+every_n_epochs: 1
+filename: "epoch={epoch}-step={step}"
+auto_insert_metric_name: false
