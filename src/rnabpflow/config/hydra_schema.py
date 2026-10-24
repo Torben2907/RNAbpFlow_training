@@ -149,6 +149,7 @@ class TrainerConfig:
     min_epochs: int = MISSING
     max_epochs: int = MISSING
     accelerator: str = MISSING
+    devices: int | list[int] = MISSING
     log_every_n_steps: int = MISSING
     deterministic: bool = MISSING
     strategy: str = MISSING
@@ -172,7 +173,6 @@ class CheckpointerConfig:
 class ExperimentConfig:
     seed: int = MISSING
     finetune: bool = MISSING
-    num_devices: int = MISSING
     warm_start: str | None = MISSING
     warm_start_cfg_override: bool = MISSING
     use_swa: bool = MISSING

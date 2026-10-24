@@ -12,7 +12,6 @@ from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 
-# from pytorch_lightning.trainer import Trainer
 import rnabpflow.utils as eu
 from rnabpflow.config.hydra_schema import HydraConfig
 from rnabpflow.data.pdb_na_datamodule_base import PDBNABaseDataModule
@@ -59,7 +58,6 @@ class Experiment:
             use_distributed_sampler=False,
             enable_progress_bar=True,
             enable_model_summary=True,
-            devices=self._exp_cfg.num_devices,
             num_sanity_val_steps=0,
         )
 
