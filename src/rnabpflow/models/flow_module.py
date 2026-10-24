@@ -358,6 +358,11 @@ class FlowModule(LightningModule):
     ):
         if sync_dist and rank_zero_only:
             raise ValueError("Unable to sync dist when rank_zero_only=True")
+        if sync_dist:
+            # Lightning stores the accumulated batch size as an int and averages it
+            # across ranks, which truncates when ranks have different batch sizes
+            # (e.g. epoch accuracy > 1). Equal weights per step avoid this.
+            batch_size = 1
         self.log(
             key,
             value,
