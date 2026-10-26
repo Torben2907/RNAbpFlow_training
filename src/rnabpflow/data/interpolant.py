@@ -48,7 +48,8 @@ class Interpolant:
         if self._igso3 is None:
             sigma_grid = torch.linspace(0.1, 1.5, 1000)
             self._igso3 = so3_utils.SampleIGSO3(1000, sigma_grid, cache_dir=".cache")
-        return self._igso3
+        # Keep the lookup tables on the training device so sampling runs there.
+        return self._igso3.to(self._device)
 
     def set_device(self, device):
         self._device = device
@@ -104,8 +105,8 @@ class Interpolant:
         """
         num_batch, num_res = res_mask.shape
         noisy_rotmats = self.igso3.sample(  # sample from IGSO(3)
-            torch.tensor([1.5]), num_batch * num_res
-        ).to(self._device)
+            torch.tensor([1.5], device=self._device), num_batch * num_res
+        )
         noisy_rotmats = noisy_rotmats.reshape(num_batch, num_res, 3, 3)
 
         rotmats_0 = torch.einsum("...ij,...jk->...ik", rotmats_1, noisy_rotmats)

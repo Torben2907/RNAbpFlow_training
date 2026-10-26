@@ -22,21 +22,17 @@ python3 train.py run=train_full experiment.trainer.devices='[4,5,6,7]'
 python3 train.py experiment.trainer.devices=4  # a count: the first 4 GPUs
 ```
 
-The config is split into groups under `configs/` (`data/`, `interpolant/`, `model/`, `training/`,
-`trainer/`, `wandb/`, `checkpointer/`) which `configs/config.yaml` composes. Presets in `configs/run/`
-override them; a group can also be swapped from the CLI, e.g. `model=<file name without .yaml>`.
-
-Information:
 - `smoke_overfit` fill trigger a test run using only one batch of the same RNA data (used for debugging).
 - `full_training` starts a full on training on `RNA3DB` by default, modify the path to the 
 .csv-file for training on a different dataset.
 - The training uses [WandB](https://forge.coreweave.com/wandb) for logging, be sure to use 
-
 ```shell
 wandb login
 ```
-
 for authentication when using for the fist time.
+- The config is split into groups under `configs/` (`data/`, `interpolant/`, `model/`, `training/`,
+`trainer/`, `wandb/`, `checkpointer/`) which `configs/config.yaml` composes. Presets in `configs/run/`
+override them; a group can also be swapped from the CLI, e.g. `model=<file name without .yaml>`.
 
 ## License
 MIT

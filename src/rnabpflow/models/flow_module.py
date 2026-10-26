@@ -21,7 +21,6 @@ from rnabpflow.config.hydra_schema import HydraConfig
 # from torch import nn
 # from rnabpflow.data import all_atom as rna_all_atom
 from rnabpflow.data import so3_utils
-from rnabpflow.data import utils as du
 from rnabpflow.data.contacts import random_mask_tokens
 from rnabpflow.data.interpolant import Interpolant
 from rnabpflow.models.flow_model import FlowModel
@@ -413,7 +412,7 @@ class FlowModule(LightningModule):
         t = torch.squeeze(noisy_batch["t"])
         self._log_scalar(
             "train/t",
-            np.mean(du.to_numpy(t)),
+            torch.mean(t),
             on_step=True,
             prog_bar=False,
             batch_size=num_batch,

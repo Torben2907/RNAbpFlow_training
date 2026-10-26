@@ -5,8 +5,8 @@ min_epochs: 1
 max_epochs: 1
 accelerator: gpu
 devices: 8 # int = number of GPUs, list = exact GPU ids, e.g. [0,1]
-log_every_n_steps: 1
-deterministic: True
+log_every_n_steps: 50 # also the progress bar refresh rate; every log forces a GPU->CPU sync
+deterministic: False
 strategy: ddp
 check_val_every_n_epoch: 1
 accumulate_grad_batches: 1

@@ -7,6 +7,9 @@ data_cfg:
 experiment:
   trainer:
     devices: [0, 1, 2, 3]
+    max_epochs: 1500
+  optimizer: 
+    lr: 0.00001
   wandb:
     project: RNAbpFlow_train
     name: full_4gpu

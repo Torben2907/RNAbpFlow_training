@@ -9,7 +9,11 @@ import hydra
 import torch
 from omegaconf import OmegaConf
 from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from pytorch_lightning.callbacks import (
+    LearningRateMonitor,
+    ModelCheckpoint,
+    TQDMProgressBar,
+)
 from pytorch_lightning.loggers import WandbLogger
 
 import rnabpflow.utils as eu
@@ -50,6 +54,9 @@ class Experiment:
         logger = WandbLogger(**cfg_dict["experiment"]["wandb"])
         logger.log_hyperparams(flat_cfg)
         callbacks.append(LearningRateMonitor(logging_interval="step"))
+        callbacks.append(
+            TQDMProgressBar(refresh_rate=self._exp_cfg.trainer.log_every_n_steps)
+        )
 
         trainer = Trainer(
             **self._exp_cfg.trainer,
