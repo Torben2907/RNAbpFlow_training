@@ -7,7 +7,10 @@ data_cfg:
 experiment:
   trainer:
     devices: [0, 1, 2, 3]
-    max_epochs: 1500
+    # Run length is set in steps: the batcher's "epoch" is a fixed 140 steps per GPU
+    # regardless of batch size, so epochs don't map to passes over the data.
+    max_steps: 120_000
+    max_epochs: -1
   optimizer: 
     lr: 0.00001
   wandb:

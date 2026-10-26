@@ -147,6 +147,7 @@ class OptimizerConfig:
 @dataclass
 class TrainerConfig:
     overfit_batches: int = MISSING
+    max_steps: int = MISSING
     min_epochs: int = MISSING
     max_epochs: int = MISSING
     accelerator: str = MISSING

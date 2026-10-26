@@ -1,6 +1,5 @@
 overfit_batches: 0
-# max_steps: 120000
-# min_steps: 1
+max_steps: -1 # optimizer steps; -1 = no limit. Training stops at whichever of max_steps/max_epochs is hit first
 min_epochs: 1
 max_epochs: 1
 accelerator: gpu
