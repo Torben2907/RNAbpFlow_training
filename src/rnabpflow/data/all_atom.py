@@ -53,6 +53,27 @@ def to_atom23_rna(trans, rots, aatype, torsions=None):
     return pred_xyz
 
 
+def to_atom28_rna(trans, rots, aatype, torsions, atom28_to_atom23, atom28_mask):
+    """
+    Builds all atoms from the backbone frames and torsion angles.
+
+    Params:
+        trans, rots      : [*, N, 3] and [*, N, 3, 3] backbone frames (in Angstrom)
+        aatype           : [*, N] residue types
+        torsions         : [*, N, 9, 2] torsion angles as (sin, cos)
+        atom28_to_atom23 : [*, N, 28] gather indices (see data/sequence.py)
+        atom28_mask      : [*, N, 28] 1 where the residue has that atom
+
+    Returns:
+        [*, N, 28, 3] atom positions in the order of base_constants.atom_types, zero
+        for atoms a residue does not have.
+    """
+    atom23 = to_atom23_rna(trans, rots, aatype, torsions=torsions)
+    gather_idx = atom28_to_atom23[..., None].expand(*atom28_to_atom23.shape, 3)
+    atom28 = torch.gather(atom23, dim=-2, index=gather_idx)
+    return atom28 * atom28_mask[..., None]
+
+
 def _init_residue_constants(float_dtype, device):
 
     default_frames = torch.tensor(

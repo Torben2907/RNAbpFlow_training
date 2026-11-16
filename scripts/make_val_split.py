@@ -27,13 +27,12 @@ import numpy as np
 import pandas as pd
 
 from rnabpflow.data import utils as du
-
-NUCLEOTIDES = "ACGU"
+from rnabpflow.data.sequence import ONEHOT_ORDER
 
 
 def read_sequence(processed_path: str) -> str:
     onehot = du.read_pkl(processed_path)["onehot"]
-    return "".join(NUCLEOTIDES[i] for i in np.asarray(onehot).argmax(-1))
+    return "".join(ONEHOT_ORDER[i] for i in np.asarray(onehot).argmax(-1))
 
 
 def kmers(seq: str, k: int) -> set[str]:

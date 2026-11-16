@@ -73,3 +73,40 @@ def random_mask_tokens(
     masked_tokens[random_mask] = MASK
 
     return masked_tokens, random_mask
+
+
+def unmask_tokens(
+    tokens: Tensor,
+    token_logits: Tensor,
+    reveal_probability: float,
+    reveal_noise: Tensor | None = None,
+    value_noise: Tensor | None = None,
+) -> Tensor:
+    """
+    One reverse step of the masking process, used during sampling: every token that is
+    still masked is revealed with `reveal_probability`, and its value is drawn from the
+    model's predicted distribution. Tokens that are already revealed never change.
+
+    The revealed positions are a uniformly random subset of the masked ones, like the
+    masks the model is trained on (see `random_mask_tokens`).
+
+    Params:
+        tokens             : [B, N] current tokens, MASK where still masked
+        token_logits       : [B, N, C] predicted logits over the C unmasked states
+        reveal_probability : probability of revealing a masked token in this step
+        reveal_noise       : [B, N] uniform samples deciding which tokens are revealed
+        value_noise        : [B, N] uniform samples deciding the revealed values
+                             (both default to fresh samples from the global RNG)
+    """
+    if reveal_noise is None:
+        reveal_noise = torch.rand(tokens.shape, device=tokens.device)
+    if value_noise is None:
+        value_noise = torch.rand(tokens.shape, device=tokens.device)
+
+    # Inverse CDF sampling from the predicted distribution.
+    cdf = torch.softmax(token_logits.float(), dim=-1).cumsum(dim=-1)
+    values = (cdf < value_noise[..., None]).sum(dim=-1)
+    values = values.clamp(max=token_logits.shape[-1] - 1)
+
+    reveal = (tokens == MASK) & (reveal_noise < reveal_probability)
+    return torch.where(reveal, values, tokens)

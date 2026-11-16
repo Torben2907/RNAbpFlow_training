@@ -13,6 +13,7 @@ tokens, and predicts the clean structure together with the masked tokens.
 - [Data](#data)
 - [Training](#training)
 - [Validation](#validation)
+- [Inference](#inference)
 - [Configuration](#configuration)
 - [Tests](#tests)
 - [Project layout](#project-layout)
@@ -22,10 +23,13 @@ tokens, and predicts the clean structure together with the masked tokens.
 The dependencies are managed with [conda](https://docs.conda.io/projects/conda/en/latest/index.html).
 
 ```shell
-conda env create -f RNAbpFlow.yml   # create the environment
+conda env create -f requirements.yaml   # create the environment (pinned versions)
 conda activate RNAbpFlow
-pip install -e .                    # install the rnabpflow package itself
+pip install -e .                        # install the rnabpflow package itself
 ```
+
+`requirements.yaml` pins the exact versions of the environment used for training.
+`RNAbpFlow.yml` lists only the top-level packages, mostly unpinned.
 
 Logging goes to [Weights & Biases](https://wandb.ai). Run `wandb login` once before the
 first training, or add `experiment.wandb.mode=offline` to log locally.
@@ -115,6 +119,45 @@ only change when the model does.
 Set `data_cfg.val_csv_path=null` to train without validation. The checkpoint monitor
 must then be a training metric (`experiment.checkpointer.monitor=loss`).
 
+## Inference
+
+`inference.py` samples all-atom structures for the sequences of a FASTA file, with a
+checkpoint written by `train.py`:
+
+```shell
+python3 inference.py ckpt_path=ckpt/RNAbpFlow_train/full_4gpu/last.ckpt fasta_path=targets.fasta
+python3 inference.py ckpt_path=... fasta_path=... num_samples=20 output_format=both device=cuda:1
+```
+
+The only input is the sequence (A, C, G, U; T is read as U). The structures are written
+to `predictions/<FASTA record id>/Sample_<i>.pdb`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `ckpt_path`, `fasta_path` | required | Checkpoint and input sequences |
+| `output_dir` | `predictions` | Where the structures are written |
+| `num_samples` | 10 | Structures per sequence |
+| `batch_size` | 10 | Samples generated in one forward pass |
+| `num_timesteps` | from the checkpoint (50) | Steps of the sampler |
+| `seed` | 42 | Sample `i` is generated from `seed + i`, whatever the batch size |
+| `output_format` | `pdb` | `pdb`, `mmcif` or `both` |
+| `device` | `auto` | `auto` (GPU if available), `cpu`, `cuda` or `cuda:<id>` |
+
+The sampler starts from random frames and fully masked contact tokens. It integrates
+the frames from noise to data with Euler steps; in every step the model also predicts
+the contact tokens, and a share of the masked ones is revealed, so that all tokens are
+known when the flow reaches the data.
+
+The same is available from Python:
+
+```python
+from rnabpflow.inference import Sampler
+
+sampler = Sampler("path/to/model.ckpt")
+result = sampler.sample("GGACUUCGGUCC", seeds=[0, 1])
+result["atom_positions"]  # [2, 12, 28, 3], in Angstrom
+```
+
 ## Configuration
 
 The config is composed by [Hydra](https://hydra.cc) from the groups in `configs/`.
@@ -133,6 +176,8 @@ overrides them.
 | `wandb/` | Project and run name |
 | `run/` | Presets |
 
+Inference has its own config, `configs/inference.yaml` (see [Inference](#inference)).
+
 Any value can be overridden on the command line, e.g. `experiment.optimizer.lr=0.0001`,
 and a whole group can be swapped with `model=<file name without .yaml>`.
 `src/rnabpflow/config/hydra_schema.py` holds the typed schema of the config.
@@ -143,20 +188,23 @@ and a whole group can be swapped with `model=<file name without .yaml>`.
 python3 -m pytest
 ```
 
-The tests need the data and `pytest`. The validation tests are skipped until the
+The tests need the data and `pytest`, and run on the CPU. The validation tests are skipped until the
 split has been created.
 
 ## Project layout
 
 ```
 train.py                  training entry point
+inference.py              inference entry point
 run.sh                    wrapper for the RNA3DB / CASP15 / CASP16 runs
 configs/                  Hydra config groups and presets
 scripts/make_val_split.py creates the train/validation split
 src/rnabpflow/
   config/                 typed config schema
-  data/                   dataset, batching, interpolant (noising), contact tokens
+  data/                   dataset, batching, interpolant (noising and sampling),
+                          contact tokens, sequence features, PDB/mmCIF output
   models/                 network (flow_model.py) and Lightning module (flow_module.py)
+  inference.py            sampler that turns a checkpoint and a sequence into structures
 tests/
 ```
 
@@ -165,7 +213,10 @@ tests/
 Large parts of the code are adapted from
 [protein-frame-flow](https://github.com/microsoft/protein-frame-flow),
 [MMDiff](https://github.com/Profluent-Internships/MMDiff) and
-[OpenFold](https://github.com/aqlaboratory/openfold).
+[OpenFold](https://github.com/aqlaboratory/openfold). The sampler and the structure
+output are adapted from the
+[RNAbpFlow inference code](https://github.com/Torben2907/RNAbpFlow_inference), the PDB
+writer from [NuFold](https://github.com/kiharalab/NuFold).
 
 ## License
 

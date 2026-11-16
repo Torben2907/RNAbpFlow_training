@@ -1,5 +1,6 @@
 """
-Noising process of the flow: interpolates frames between noise (t = 0) and data (t = 1).
+Noising process of the flow: interpolates frames between noise (t = 0) and data (t = 1),
+and the sampler that integrates the learned flow back from noise to data.
 
 Code adapted from
 https://github.com/microsoft/protein-frame-flow/blob/main/data/interpolant.py
@@ -15,6 +16,7 @@ from torch import Tensor
 from rnabpflow.config.hydra_schema import InterpolantConfig
 from rnabpflow.data import so3_utils
 from rnabpflow.data import utils as du
+from rnabpflow.data.contacts import MASK, unmask_tokens
 
 
 def _centered_gaussian(num_batch, num_res, device):
@@ -192,3 +194,104 @@ class Interpolant:
             )
 
         return so3_utils.geodesic_t(scaling * d_t, rotmats_1, rotmats_t)
+
+    @torch.no_grad()
+    def sample(
+        self,
+        model: torch.nn.Module,
+        onehot: Tensor,
+        seeds: list[int],
+        num_timesteps: int | None = None,
+    ) -> dict[str, Tensor]:
+        """
+        Generates one structure per seed for a single sequence: integrates the frames
+        from noise (t = min_t) to data (t = 1) with Euler steps, while the contact
+        tokens go from fully masked to fully revealed. In every step the model
+        predicts the clean structure and the tokens; a masked token is then revealed
+        with probability d_t / (1 - t), so that on average a fraction 1 - t of the
+        tokens is masked at flow time t.
+
+        Each sample draws all its randomness from its own seed, so a sample does not
+        depend on which other samples share its batch.
+
+        Params:
+            model         : predicts x1 and the token logits (in eval mode)
+            onehot        : [N, 4] one-hot sequence, on the device to sample on
+            seeds         : one seed per sample (B = len(seeds))
+            num_timesteps : number of flow times; defaults to `sampling.num_timesteps`
+
+        Returns:
+            trans          : [B, N, 3] frame origins (in Angstrom)
+            rotmats        : [B, N, 3, 3] frame orientations
+            torsions       : [B, N, 9, 2] torsion angles as (sin, cos)
+            contact_tokens : [B, N] the generated contact tokens
+        """
+        if num_timesteps is None:
+            num_timesteps = self._sample_cfg.num_timesteps
+        if num_timesteps < 2:
+            raise ValueError("Sampling needs at least 2 timesteps")
+
+        device = onehot.device
+        self.set_device(device)
+        num_batch, num_res = len(seeds), onehot.shape[0]
+        generators = [torch.Generator().manual_seed(int(seed)) for seed in seeds]
+
+        def draw(sample_fn) -> Tensor:
+            return torch.stack([sample_fn(g) for g in generators]).to(device)
+
+        # Prior: centered Gaussian translations and uniformly random rotations.
+        trans_t = draw(lambda g: torch.randn(num_res, 3, generator=g))
+        trans_t = trans_t - trans_t.mean(dim=-2, keepdim=True)
+        trans_t = trans_t * du.NM_TO_ANG_SCALE
+        # Normalized Gaussian quaternions are uniform on SO(3).
+        quats = draw(lambda g: torch.randn(num_res, 4, generator=g)).cpu().numpy()
+        rotmats_t = torch.tensor(
+            Rotation.from_quat(quats.reshape(-1, 4)).as_matrix(),
+            dtype=torch.float32,
+            device=device,
+        ).reshape(num_batch, num_res, 3, 3)
+        tokens = torch.full((num_batch, num_res), MASK, device=device)
+
+        batch = {
+            "res_mask": torch.ones(num_batch, num_res, device=device),
+            "onehot": onehot[None].expand(num_batch, -1, -1),
+        }
+
+        def predict(t: float) -> dict[str, Tensor]:
+            batch["trans_t"] = trans_t
+            batch["rotmats_t"] = rotmats_t
+            batch["contact_tokens"] = tokens
+            batch["t"] = torch.full((num_batch, 1), t, device=device)
+            return model(batch)
+
+        ts = torch.linspace(self._cfg.min_t, 1.0, num_timesteps).tolist()
+        t_1 = ts[0]
+        for t_2 in ts[1:]:
+            model_out = predict(t_1)
+            if self._cfg.self_condition:
+                batch["trans_sc"] = model_out["pred_trans"]
+
+            d_t = t_2 - t_1
+            trans_t = self._trans_euler_step(d_t, t_1, model_out["pred_trans"], trans_t)
+            rotmats_t = self._rots_euler_step(
+                d_t, t_1, model_out["pred_rotmats"], rotmats_t
+            )
+            tokens = unmask_tokens(
+                tokens,
+                model_out["token_logits"],
+                # Reveals all remaining tokens in the last step (t_2 = 1).
+                reveal_probability=d_t / (1 - t_1),
+                reveal_noise=draw(lambda g: torch.rand(num_res, generator=g)),
+                value_noise=draw(lambda g: torch.rand(num_res, generator=g)),
+            )
+            t_1 = t_2
+
+        # The integration stops at t = 1; the final structure is the model's
+        # prediction there, given the fully revealed tokens.
+        model_out = predict(t_1)
+        return {
+            "trans": model_out["pred_trans"],
+            "rotmats": model_out["pred_rotmats"],
+            "torsions": model_out["pred_torsions"].reshape(num_batch, num_res, -1, 2),
+            "contact_tokens": tokens,
+        }

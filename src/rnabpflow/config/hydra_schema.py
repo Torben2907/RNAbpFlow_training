@@ -205,3 +205,23 @@ class HydraConfig:
     interpolant: InterpolantConfig = MISSING
     model: ModelConfig = MISSING
     experiment: ExperimentConfig = MISSING
+
+
+@dataclass
+class InferenceConfig:
+    """Schema of configs/inference.yaml (used by inference.py, not by training)."""
+
+    ckpt_path: str = MISSING
+    # FASTA file with one or more RNA sequences.
+    fasta_path: str = MISSING
+    # Structures are written to <output_dir>/<FASTA record id>/Sample_<i>.<ext>.
+    output_dir: str = MISSING
+    num_samples: int = MISSING
+    # Number of samples generated in one forward pass.
+    batch_size: int = MISSING
+    # Steps of the sampler; null uses interpolant.sampling.num_timesteps of the checkpoint.
+    num_timesteps: int | None = None
+    # Sample i is generated from seed + i, whatever the batch size.
+    seed: int = MISSING
+    output_format: str = MISSING  # pdb | mmcif | both
+    device: str = MISSING  # auto | cpu | cuda | cuda:<id>
