@@ -1,8 +1,8 @@
-# Pinned export of the RNAbpFlow conda environment (conda env export --no-builds, 2026-11-16).
-# Create with:  conda env create -f requirements.yaml && conda activate RNAbpFlow && pip install -e .
-# Left out: the rnabpflow package itself (installed editable via `pip install -e .`) and an unused
+# Pinned export of the AstraFold conda environment (conda env export --no-builds, 2026-11-16).
+# Create with:  conda env create -f requirements.yaml && conda activate AstraFold && pip install -e .
+# Left out: the astrafold package itself (installed editable via `pip install -e .`) and an unused
 # CUDA 13 wheel stack (nvidia-*, cuda-*) nothing depends on; torch uses its bundled CUDA 11.8.
-name: RNAbpFlow
+name: AstraFold
 channels:
   - defaults
   - conda-forge

@@ -11,12 +11,12 @@ from pathlib import Path
 import numpy as np
 import torch
 
-import rnabpflow.utils as eu
-from rnabpflow.config.hydra_schema import InferenceConfig
-from rnabpflow.data.all_atom import to_atom28_rna
-from rnabpflow.data.nucleic_acid import OUTPUT_FORMATS, write_structure
-from rnabpflow.data.sequence import read_fasta, sequence_features
-from rnabpflow.models.flow_module import FlowModule
+import astrafold.utils as eu
+from astrafold.config.hydra_schema import InferenceConfig
+from astrafold.data.all_atom import to_atom28_rna
+from astrafold.data.nucleic_acid import OUTPUT_FORMATS, write_structure
+from astrafold.data.sequence import read_fasta, sequence_features
+from astrafold.models.flow_module import FlowModule
 
 log = eu.get_pylogger(__name__)
 

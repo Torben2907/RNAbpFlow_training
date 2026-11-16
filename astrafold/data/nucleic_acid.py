@@ -9,7 +9,7 @@ from pathlib import Path
 import gemmi
 import numpy as np
 
-from rnabpflow.data import base_constants as rc
+from astrafold.data import base_constants as rc
 
 OUTPUT_FORMATS = ("pdb", "mmcif", "both")
 

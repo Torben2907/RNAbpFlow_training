@@ -1,7 +1,7 @@
 import torch
 from test_utils import load_example_batch
 
-from rnabpflow.data.contacts import MASK, random_mask_tokens
+from astrafold.data.contacts import MASK, random_mask_tokens
 
 
 def test_masking(config):

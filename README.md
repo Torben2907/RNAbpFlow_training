@@ -1,14 +1,33 @@
-# RNAbpFlow training
+# AstraFold
 
-Training code for *"Bridging discrete and continuous diffusion models for RNA structure
-prediction"*.
+Training and inference code for *"Bridging discrete and continuous diffusion models for
+RNA structure prediction"*.
 
 The model is an SE(3) flow matching network for RNA backbones. It takes the noisy
 nucleotide frames, the sequence and a partially masked set of per-nucleotide contact
 tokens, and predicts the clean structure together with the masked tokens.
 
+The repository covers both sides:
+
+- **Training** (`train.py`): learns the model from experimental RNA structures and
+  validates it on a held-out split.
+- **Inference** (`inference.py`): samples all-atom structures, written as PDB or mmCIF,
+  for RNA sequences with a trained checkpoint. It needs only the sequence, not the
+  training data.
+
+## Quick start
+
+```shell
+# Train (needs the data, see below)
+python3 train.py run=train_full
+
+# Predict structures for the sequences of a FASTA file
+python3 inference.py ckpt_path=path/to/model.ckpt fasta_path=targets.fasta
+```
+
 ## Contents
 
+- [Quick start](#quick-start)
 - [Installation](#installation)
 - [Data](#data)
 - [Training](#training)
@@ -24,17 +43,20 @@ The dependencies are managed with [conda](https://docs.conda.io/projects/conda/e
 
 ```shell
 conda env create -f requirements.yaml   # create the environment (pinned versions)
-conda activate RNAbpFlow
-pip install -e .                        # install the rnabpflow package itself
+conda activate AstraFold
+pip install -e .                        # install the astrafold package itself
 ```
 
-`requirements.yaml` pins the exact versions of the environment used for training.
-`RNAbpFlow.yml` lists only the top-level packages, mostly unpinned.
+`requirements.yaml` pins the exact versions of the environment used for training. The
+same environment is used for inference.
 
-Logging goes to [Weights & Biases](https://wandb.ai). Run `wandb login` once before the
-first training, or add `experiment.wandb.mode=offline` to log locally.
+Training logs go to [Weights & Biases](https://wandb.ai). Run `wandb login` once before
+the first training, or add `experiment.wandb.mode=offline` to log locally. Inference
+does not log to Weights & Biases.
 
 ## Data
+
+This section is only needed for training; inference takes its input from a FASTA file.
 
 The data is not part of the repository. Training expects three directories in the
 project root:
@@ -125,12 +147,22 @@ must then be a training metric (`experiment.checkpointer.monitor=loss`).
 checkpoint written by `train.py`:
 
 ```shell
-python3 inference.py ckpt_path=ckpt/RNAbpFlow_train/full_4gpu/last.ckpt fasta_path=targets.fasta
+python3 inference.py ckpt_path=ckpt/AstraFold/full_4gpu_val/last.ckpt fasta_path=targets.fasta
 python3 inference.py ckpt_path=... fasta_path=... num_samples=20 output_format=both device=cuda:1
 ```
 
 The only input is the sequence (A, C, G, U; T is read as U). The structures are written
-to `predictions/<FASTA record id>/Sample_<i>.pdb`.
+to `predictions/<FASTA record id>/Sample_<i>.pdb`. A FASTA file may hold any number of
+sequences:
+
+```
+>hairpin
+GGACUUCGGUCC
+>my_target
+GGCGCUUAGCGUAGAGCGCC
+```
+
+Inference runs on a GPU if one is available and also works on the CPU, only slower.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -151,7 +183,7 @@ known when the flow reaches the data.
 The same is available from Python:
 
 ```python
-from rnabpflow.inference import Sampler
+from astrafold.inference import Sampler
 
 sampler = Sampler("path/to/model.ckpt")
 result = sampler.sample("GGACUUCGGUCC", seeds=[0, 1])
@@ -180,7 +212,7 @@ Inference has its own config, `configs/inference.yaml` (see [Inference](#inferen
 
 Any value can be overridden on the command line, e.g. `experiment.optimizer.lr=0.0001`,
 and a whole group can be swapped with `model=<file name without .yaml>`.
-`src/rnabpflow/config/hydra_schema.py` holds the typed schema of the config.
+`astrafold/config/hydra_schema.py` holds the typed schema of the config.
 
 ## Tests
 
@@ -188,8 +220,9 @@ and a whole group can be swapped with `model=<file name without .yaml>`.
 python3 -m pytest
 ```
 
-The tests need the data and `pytest`, and run on the CPU. The validation tests are skipped until the
-split has been created.
+The tests need the data and `pytest`, and run on the CPU. They cover training,
+validation and inference. The validation tests are skipped until the split has been
+created.
 
 ## Project layout
 
@@ -199,7 +232,7 @@ inference.py              inference entry point
 run.sh                    wrapper for the RNA3DB / CASP15 / CASP16 runs
 configs/                  Hydra config groups and presets
 scripts/make_val_split.py creates the train/validation split
-src/rnabpflow/
+astrafold/                 the Python package
   config/                 typed config schema
   data/                   dataset, batching, interpolant (noising and sampling),
                           contact tokens, sequence features, PDB/mmCIF output

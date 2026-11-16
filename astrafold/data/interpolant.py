@@ -13,10 +13,10 @@ from scipy.optimize import linear_sum_assignment
 from scipy.spatial.transform import Rotation
 from torch import Tensor
 
-from rnabpflow.config.hydra_schema import InterpolantConfig
-from rnabpflow.data import so3_utils
-from rnabpflow.data import utils as du
-from rnabpflow.data.contacts import MASK, unmask_tokens
+from astrafold.config.hydra_schema import InterpolantConfig
+from astrafold.data import so3_utils
+from astrafold.data import utils as du
+from astrafold.data.contacts import MASK, unmask_tokens
 
 
 def _centered_gaussian(num_batch, num_res, device):

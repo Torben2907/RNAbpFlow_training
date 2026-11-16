@@ -6,8 +6,8 @@ https://github.com/microsoft/protein-frame-flow/blob/main/models/edge_embedder.p
 import torch
 from torch import nn
 
-from rnabpflow.config.hydra_schema import EdgeEmbedderConfig
-from rnabpflow.models import utils
+from astrafold.config.hydra_schema import EdgeEmbedderConfig
+from astrafold.models import utils
 
 
 class EdgeEmbedder(nn.Module):

@@ -7,7 +7,7 @@ import torch
 from Bio import SeqIO
 from torch import Tensor
 
-from rnabpflow.data import base_constants as rc
+from astrafold.data import base_constants as rc
 
 # Channel order of the "onehot" feature in the training pickles. It differs from the
 # order of `aatype` (base_constants.restypes: A, G, C, U).

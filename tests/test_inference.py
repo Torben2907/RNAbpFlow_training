@@ -12,20 +12,20 @@ from omegaconf import OmegaConf
 from pytorch_lightning import Trainer
 from scipy.spatial.transform import Rotation
 
-from rnabpflow.config.hydra_schema import HydraConfig, InferenceConfig
-from rnabpflow.data import base_constants as rc
-from rnabpflow.data import rigid_utils
-from rnabpflow.data import utils as du
-from rnabpflow.data.all_atom import to_atom28_rna
-from rnabpflow.data.contacts import CONTACT, MASK, NO_CONTACT, unmask_tokens
-from rnabpflow.data.nucleic_acid import to_pdb, write_structure
-from rnabpflow.data.sequence import (
+from astrafold.config.hydra_schema import HydraConfig, InferenceConfig
+from astrafold.data import base_constants as rc
+from astrafold.data import rigid_utils
+from astrafold.data import utils as du
+from astrafold.data.all_atom import to_atom28_rna
+from astrafold.data.contacts import CONTACT, MASK, NO_CONTACT, unmask_tokens
+from astrafold.data.nucleic_acid import to_pdb, write_structure
+from astrafold.data.sequence import (
     normalize_sequence,
     read_fasta,
     sequence_features,
 )
-from rnabpflow.inference import Sampler, run_inference
-from rnabpflow.models.flow_module import FlowModule
+from astrafold.inference import Sampler, run_inference
+from astrafold.models.flow_module import FlowModule
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SEQUENCE = "GGACUUCGGUCC"

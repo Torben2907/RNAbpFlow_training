@@ -5,11 +5,11 @@ import torch
 from test_utils import load_example_batch
 from torch import Tensor
 
-from rnabpflow.config.hydra_schema import HydraConfig
-from rnabpflow.data.contacts import MASK, random_mask_tokens
-from rnabpflow.data.interpolant import Interpolant
-from rnabpflow.models.flow_model import FlowModel
-from rnabpflow.models.flow_module import FlowModule
+from astrafold.config.hydra_schema import HydraConfig
+from astrafold.data.contacts import MASK, random_mask_tokens
+from astrafold.data.interpolant import Interpolant
+from astrafold.models.flow_model import FlowModel
+from astrafold.models.flow_module import FlowModule
 
 
 def test_shapes(config: HydraConfig):

@@ -23,7 +23,7 @@ import torch
 from scipy.stats import truncnorm
 from torch import nn
 
-from rnabpflow.data.rigid_utils import Rigid
+from astrafold.data.rigid_utils import Rigid
 
 
 def permute_final_dims(tensor: torch.Tensor, inds: list[int]):

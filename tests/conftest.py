@@ -5,7 +5,7 @@ import pytest
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-from rnabpflow.config.hydra_schema import HydraConfig
+from astrafold.config.hydra_schema import HydraConfig
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 

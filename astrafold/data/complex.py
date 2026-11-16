@@ -8,7 +8,7 @@ import dataclasses
 import numpy as np
 from beartype.typing import Any, Mapping
 
-from rnabpflow.data import complex_constants, nucleotide_constants, protein_constants
+from astrafold.data import complex_constants, nucleotide_constants, protein_constants
 
 FeatureDict = Mapping[str, np.ndarray]
 ModelOutput = Mapping[str, Any]  # Is a nested dict.

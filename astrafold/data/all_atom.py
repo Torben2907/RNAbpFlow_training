@@ -15,17 +15,17 @@
 
 import torch
 
-from rnabpflow.data.base_constants import (
+from astrafold.data.base_constants import (
     restype_atom23_mask,
     restype_atom23_rigid_group_positions,
     restype_atom23_to_rigid_group,
     restype_rigid_group_default_frame,
 )
-from rnabpflow.data.feats import (
+from astrafold.data.feats import (
     frames_and_literature_positions_to_atom23_pos,
     torsion_angles_to_frames,
 )
-from rnabpflow.data.rigid_utils import Rigid, Rotation
+from astrafold.data.rigid_utils import Rigid, Rotation
 
 
 def to_atom23_rna(trans, rots, aatype, torsions=None):

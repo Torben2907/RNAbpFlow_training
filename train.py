@@ -18,10 +18,10 @@ from pytorch_lightning.callbacks import (
 )
 from pytorch_lightning.loggers import WandbLogger
 
-import rnabpflow.utils as eu
-from rnabpflow.config.hydra_schema import HydraConfig
-from rnabpflow.data.pdb_na_datamodule_base import PDBNABaseDataModule
-from rnabpflow.models.flow_module import FlowModule
+import astrafold.utils as eu
+from astrafold.config.hydra_schema import HydraConfig
+from astrafold.data.pdb_na_datamodule_base import PDBNABaseDataModule
+from astrafold.models.flow_module import FlowModule
 
 log = eu.get_pylogger(__name__)
 torch.set_float32_matmul_precision("medium")

@@ -14,12 +14,12 @@ import tree
 from beartype.typing import Optional
 from torch.utils.data import Dataset
 
-from rnabpflow.config.hydra_schema import DataConfig
-from rnabpflow.data import rigid_utils
-from rnabpflow.data import utils as du
-from rnabpflow.data.contacts import make_contact_tokens
+from astrafold.config.hydra_schema import DataConfig
+from astrafold.data import rigid_utils
+from astrafold.data import utils as du
+from astrafold.data.contacts import make_contact_tokens
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class PDBNABaseDataset(Dataset):

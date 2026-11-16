@@ -13,8 +13,8 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler, dist
 
-from rnabpflow.config.hydra_schema import DataConfig
-from rnabpflow.data.pdb_na_dataset_base import PDBNABaseDataset
+from astrafold.config.hydra_schema import DataConfig
+from astrafold.data.pdb_na_dataset_base import PDBNABaseDataset
 
 
 class PDBNABaseDataModule(LightningDataModule):

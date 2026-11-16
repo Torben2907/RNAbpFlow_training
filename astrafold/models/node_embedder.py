@@ -8,9 +8,9 @@ https://github.com/microsoft/protein-frame-flow/blob/main/models/node_embedder.p
 import torch
 from torch import Tensor, nn
 
-from rnabpflow.config.hydra_schema import NodeEmbedderConfig
-from rnabpflow.data.contacts import NUM_TOKEN_STATES
-from rnabpflow.models import utils
+from astrafold.config.hydra_schema import NodeEmbedderConfig
+from astrafold.data.contacts import NUM_TOKEN_STATES
+from astrafold.models import utils
 
 
 class NodeEmbedder(nn.Module):

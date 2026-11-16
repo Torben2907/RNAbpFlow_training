@@ -23,5 +23,5 @@ experiment:
   optimizer: 
     lr: 0.00001
   wandb:
-    project: RNAbpFlow_train
+    project: AstraFold
     name: full_4gpu

@@ -11,8 +11,8 @@ import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from rnabpflow.config.hydra_schema import InferenceConfig
-from rnabpflow.inference import run_inference
+from astrafold.config.hydra_schema import InferenceConfig
+from astrafold.inference import run_inference
 
 torch.set_float32_matmul_precision("high")
 

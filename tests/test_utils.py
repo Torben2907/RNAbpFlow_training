@@ -1,7 +1,7 @@
 from torch import Tensor
 
-from rnabpflow.config.hydra_schema import HydraConfig
-from rnabpflow.data.pdb_na_datamodule_base import PDBNABaseDataModule
+from astrafold.config.hydra_schema import HydraConfig
+from astrafold.data.pdb_na_datamodule_base import PDBNABaseDataModule
 
 
 def load_example_batch(cfg: HydraConfig) -> dict[str, Tensor]:

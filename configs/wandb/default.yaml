@@ -1,5 +1,5 @@
 name: "RNA3DB"
-project: "RNAbpFlow_train"
+project: "AstraFold"
 save_code: false
 tags: []
 mode: "online" # can also save to `offline`

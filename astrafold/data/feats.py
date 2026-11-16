@@ -17,7 +17,7 @@
 import torch
 from torch import nn
 
-from rnabpflow.data.rigid_utils import Rigid, Rotation
+from astrafold.data.rigid_utils import Rigid, Rotation
 
 
 def torsion_angles_to_frames(

@@ -8,12 +8,12 @@ https://github.com/microsoft/protein-frame-flow/blob/main/models/flow_model.py
 import torch
 from torch import Tensor, nn
 
-from rnabpflow.config.hydra_schema import ModelConfig
-from rnabpflow.data import utils as du
-from rnabpflow.data.rigid_utils import Rigid
-from rnabpflow.models import ipa_pytorch, torsion_net
-from rnabpflow.models.edge_embedder import EdgeEmbedder
-from rnabpflow.models.node_embedder import NodeEmbedder
+from astrafold.config.hydra_schema import ModelConfig
+from astrafold.data import utils as du
+from astrafold.data.rigid_utils import Rigid
+from astrafold.models import ipa_pytorch, torsion_net
+from astrafold.models.edge_embedder import EdgeEmbedder
+from astrafold.models.node_embedder import NodeEmbedder
 
 
 class FlowModel(nn.Module):

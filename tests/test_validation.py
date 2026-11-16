@@ -5,9 +5,9 @@ import pytest
 import torch
 from scipy.spatial.transform import Rotation
 
-from rnabpflow.config.hydra_schema import HydraConfig
-from rnabpflow.data.pdb_na_datamodule_base import PDBNABaseDataModule
-from rnabpflow.models.flow_module import FlowModule, _masked_kabsch_rmsd
+from astrafold.config.hydra_schema import HydraConfig
+from astrafold.data.pdb_na_datamodule_base import PDBNABaseDataModule
+from astrafold.models.flow_module import FlowModule, _masked_kabsch_rmsd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VAL_CSV = PROJECT_ROOT / "metadata" / "RNA3DB_val.csv"

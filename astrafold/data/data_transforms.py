@@ -22,10 +22,10 @@ from functools import wraps
 import numpy as np
 import torch
 
-from rnabpflow.data import nucleotide_constants as nc
-from rnabpflow.data import vocabulary
-from rnabpflow.data.complex_constants import NUM_PROT_NA_TORSIONS
-from rnabpflow.data.rigid_utils import Rigid, Rotation
+from astrafold.data import nucleotide_constants as nc
+from astrafold.data import vocabulary
+from astrafold.data.complex_constants import NUM_PROT_NA_TORSIONS
+from astrafold.data.rigid_utils import Rigid, Rotation
 
 MSA_FEATURE_NAMES = [
     "msa",

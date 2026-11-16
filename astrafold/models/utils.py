@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
-from rnabpflow.data import utils as du
+from astrafold.data import utils as du
 
 
 def calc_distogram(pos, min_bin, max_bin, num_bins):

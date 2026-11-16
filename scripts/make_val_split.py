@@ -26,8 +26,8 @@ import argparse
 import numpy as np
 import pandas as pd
 
-from rnabpflow.data import utils as du
-from rnabpflow.data.sequence import ONEHOT_ORDER
+from astrafold.data import utils as du
+from astrafold.data.sequence import ONEHOT_ORDER
 
 
 def read_sequence(processed_path: str) -> str:

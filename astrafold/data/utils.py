@@ -17,8 +17,8 @@ import torch
 import torch.nn.functional as F
 from torch_scatter import scatter, scatter_add
 
-from rnabpflow.data import nucleotide_constants, protein_constants
-from rnabpflow.data import rigid_utils as ru
+from astrafold.data import nucleotide_constants, protein_constants
+from astrafold.data import rigid_utils as ru
 
 Rigid = ru.Rigid
 

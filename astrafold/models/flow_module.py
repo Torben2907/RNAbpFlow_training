@@ -15,12 +15,12 @@ import torch.nn.functional as F
 from pytorch_lightning import LightningModule
 from torch import Tensor
 
-from rnabpflow.config.hydra_schema import HydraConfig
-from rnabpflow.data import so3_utils
-from rnabpflow.data import utils as du
-from rnabpflow.data.contacts import random_mask_tokens
-from rnabpflow.data.interpolant import Interpolant
-from rnabpflow.models.flow_model import FlowModel
+from astrafold.config.hydra_schema import HydraConfig
+from astrafold.data import so3_utils
+from astrafold.data import utils as du
+from astrafold.data.contacts import random_mask_tokens
+from astrafold.data.interpolant import Interpolant
+from astrafold.models.flow_model import FlowModel
 
 # The model predicts the first 9 torsion angles of each nucleotide.
 NUM_TORSIONS = 9
