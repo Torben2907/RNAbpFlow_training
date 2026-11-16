@@ -5,6 +5,7 @@ defaults:
   - interpolant: default
   - model: ipa_6blocks
   - training@experiment.training: default
+  - validation@experiment.validation: default
   - trainer@experiment.trainer: ddp
   - wandb@experiment.wandb: default
   - checkpointer@experiment.checkpointer: default

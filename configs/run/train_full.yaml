@@ -2,15 +2,21 @@
 # Full training run.
 # Usage: python3 train.py run=train_full
 data_cfg:
-  csv_path: metadata/RNA3DB_train.csv
+  # 90/10 split of RNA3DB_train.csv, made by scripts/make_val_split.py
+  csv_path: metadata/RNA3DB_train_split.csv
+  val_csv_path: metadata/RNA3DB_val.csv
 
 experiment:
   trainer:
     devices: [0, 1, 2, 3]
-    # Run length is set in steps: the batcher's "epoch" is a fixed 140 steps per GPU
+    # Run length is set in steps: the batcher's "epoch" is a fixed
+    # ceil(num_train_rnas / num_gpus) steps per GPU (126 with the 504-RNA split)
     # regardless of batch size, so epochs don't map to passes over the data.
+    # Validation runs at the end of every such epoch.
     max_steps: 120_000
     max_epochs: -1
+  checkpointer:
+    monitor: valid/loss # keep the checkpoints with the lowest validation loss
   optimizer: 
     lr: 0.00001
   wandb:

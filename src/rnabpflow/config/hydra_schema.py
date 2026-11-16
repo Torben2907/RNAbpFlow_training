@@ -1,3 +1,5 @@
+"""Typed schema of the Hydra config in configs/."""
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,10 +15,10 @@ class FilteringConfig:
 @dataclass
 class DataConfig:
     csv_path: str = MISSING
+    # Held-out CSV for validation; null disables validation.
+    val_csv_path: str | None = None
     filtering: FilteringConfig = MISSING
     min_t: float = MISSING
-    samples_per_eval_length: int = MISSING
-    num_eval_lengths: int = MISSING
     batch_size: int = MISSING
     max_batch_size: int = MISSING
     max_squared_res: int = MISSING
@@ -91,7 +93,6 @@ class IPAConfig:
     seq_tfmr_num_heads: int = MISSING
     seq_tfmr_num_layers: int = MISSING
     num_blocks: int = MISSING
-    # ss: int = MISSING
     dropout: float = MISSING
 
 
@@ -131,6 +132,15 @@ class TrainingConfig:
 
 
 @dataclass
+class ValidationConfig:
+    # Every validation example is evaluated at each of these flow times.
+    t_values: list[float] = MISSING
+    # Seeds the noise, token masks and t-independent randomness of each validation
+    # batch, so validation metrics are comparable across epochs.
+    seed: int = MISSING
+
+
+@dataclass
 class WandbConfig:
     name: str = MISSING
     project: str = MISSING
@@ -154,6 +164,7 @@ class TrainerConfig:
     devices: Any = MISSING  # int (number of GPUs) or list[int] (GPU ids); OmegaConf can't type that union
     log_every_n_steps: int = MISSING
     deterministic: bool = MISSING
+    detect_anomaly: bool = MISSING
     strategy: str = MISSING
     check_val_every_n_epoch: int = MISSING
     accumulate_grad_batches: int = MISSING
@@ -181,6 +192,7 @@ class ExperimentConfig:
 
     batch_ot: BatchOptimalTransportConfig = MISSING
     training: TrainingConfig = MISSING
+    validation: ValidationConfig = MISSING
     wandb: WandbConfig = MISSING
     optimizer: OptimizerConfig = MISSING
     trainer: TrainerConfig = MISSING

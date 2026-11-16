@@ -1,11 +1,14 @@
-# -------------------------------------------------------------------------------------------------------------------------------------
-# Following code curated for MMDiff (https://github.com/Profluent-Internships/MMDiff):
-# -------------------------------------------------------------------------------------------------------------------------------------
+"""
+Lightning datamodule and the length-based batch sampler.
+
+Code adapted from MMDiff (https://github.com/Profluent-Internships/MMDiff) and
+https://github.com/microsoft/protein-frame-flow/blob/main/data/pdb_dataloader.py
+"""
 
 import math
 
 import torch
-from beartype.typing import Any, Dict, Optional
+from beartype.typing import Optional
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler, dist
@@ -15,97 +18,76 @@ from rnabpflow.data.pdb_na_dataset_base import PDBNABaseDataset
 
 
 class PDBNABaseDataModule(LightningDataModule):
-    def __init__(self, data_cfg: DataConfig, inference_cfg=None):
+    def __init__(self, data_cfg: DataConfig):
         super().__init__()
-        self.save_hyperparameters(logger=False)
-
         self.data_cfg = data_cfg
-
-        self.data_train = None
-        self.data_val = None
-
-        self.sampler_train = None
-        self.sampler_val = None
-
-    def prepare_data(self):
-        """Download data if needed.
-        Do not use it to assign state (self.x = y).
-        """
+        self.data_train: Optional[PDBNABaseDataset] = None
+        self.data_val: Optional[PDBNABaseDataset] = None
 
     def setup(self, stage):
-        self.data_train = PDBNABaseDataset(
-            self.hparams.data_cfg,
-            is_training=True,
-        )
-        self.data_val = PDBNABaseDataset(
-            self.hparams.data_cfg,
-            is_training=False,
-        )
+        self.data_train = PDBNABaseDataset(self.data_cfg, is_training=True)
+        if self.data_cfg.val_csv_path is not None:
+            self.data_val = PDBNABaseDataset(
+                self.data_cfg,
+                is_training=False,
+                csv_path=self.data_cfg.val_csv_path,
+            )
 
     def train_dataloader(self, rank=None, num_replicas=None):
         num_workers = self.data_cfg.num_workers
         # Lightning's overfit_batches takes the first batch of every epoch, so the
         # batch order must not be reshuffled between epochs.
         overfit = self.trainer is not None and self.trainer.overfit_batches > 0
-        lb = RNALengthBatcher(
+        batch_sampler = RNALengthBatcher(
             sampler_cfg=self.data_cfg,
             metadata_csv=self.data_train.csv,
             rank=rank,
             num_replicas=num_replicas,
             freeze_epoch=overfit,
         )
-        dl = DataLoader(
+        return DataLoader(
             self.data_train,
-            batch_sampler=lb,
+            batch_sampler=batch_sampler,
             num_workers=num_workers,
             prefetch_factor=None if num_workers == 0 else self.data_cfg.prefetch_factor,
             pin_memory=False,
             persistent_workers=num_workers > 0,
         )
 
-        # for batch_idx, batch in enumerate(dl):
-        #     print(f"Batch train = {batch_idx}")
-        #     for key in batch.keys():
-        #         print(key, batch[key].shape)
-        #         #print(batch[key])
-
-        return dl
-
     def val_dataloader(self):
-        val_samp = DistributedSampler(self.data_val, shuffle=False)
-        dl = DataLoader(
-            self.data_val,
-            sampler=val_samp,
-            num_workers=2,
-            prefetch_factor=2,
-            persistent_workers=True,
+        if self.data_val is None:
+            return []
+
+        # Batch size 1: validation RNAs have different lengths and are not grouped
+        # into same-length batches like in training. Under DDP each rank evaluates its
+        # own shard; DistributedSampler pads the shards to equal size by repeating up
+        # to num_replicas - 1 examples.
+        distributed = dist.is_available() and dist.is_initialized()
+        val_sampler = (
+            DistributedSampler(self.data_val, shuffle=False) if distributed else None
         )
-        # for batch_idx, batch in enumerate(dl):
-        #     print(f"Batch val = {batch_idx}")
-        #     for key in batch.keys():
-        #         print(key, batch[key].shape)
-        #         #print(batch[key])
-
-        return dl
-
-    def teardown(self, stage: Optional[str] = None):
-        """Clean up after fit or test."""
-
-    def state_dict(self):
-        """Extra things to save to checkpoint."""
-        return {}
-
-    def load_state_dict(self, state_dict: Dict[str, Any]):
-        """Things to do when loading checkpoint."""
-
-
-"""
-Taken from
-https://github.com/microsoft/protein-frame-flow/blob/main/data/pdb_dataloader.py#L162
-"""
+        num_workers = min(self.data_cfg.num_workers, 2)
+        return DataLoader(
+            self.data_val,
+            batch_size=1,
+            sampler=val_sampler,
+            shuffle=False,
+            num_workers=num_workers,
+            prefetch_factor=None if num_workers == 0 else 2,
+            persistent_workers=num_workers > 0,
+        )
 
 
 class RNALengthBatcher:
+    """
+    Batch sampler that groups RNAs of the same length, so batches need no padding.
+
+    Every replica (GPU) gets its own share of the data, and every replica yields the
+    same number of batches per epoch: ceil(num_examples / num_replicas), independent
+    of the batch size. The data is reshuffled and re-batched until that number is
+    reached, so one "epoch" can cover the data more than once.
+    """
+
     def __init__(
         self,
         sampler_cfg: DataConfig,
@@ -152,7 +134,8 @@ class RNALengthBatcher:
         else:
             replica_csv = self._data_csv
 
-        # Each batch contains multiple RNA of the same length.
+        # Each batch contains multiple RNA of the same length. Longer RNAs get
+        # smaller batches, to bound the memory of the pair representation.
         sample_order = []
         for seq_len, len_df in replica_csv.groupby("modeled_na_seq_len"):
             max_batch_size = min(
@@ -170,9 +153,8 @@ class RNALengthBatcher:
         return [sample_order[i] for i in new_order]
 
     def _create_batches(self):
-        # Make sure all replicas have the same number of batches Otherwise leads to bugs.
+        # Make sure all replicas have the same number of batches. Otherwise leads to bugs.
         # See bugs with shuffling https://github.com/Lightning-AI/lightning/issues/10947
-
         all_batches = []
         num_augments = -1
         while len(all_batches) < self._num_batches:
@@ -180,9 +162,7 @@ class RNALengthBatcher:
             num_augments += 1
             if num_augments > 1000:
                 raise ValueError("Exceeded number of augmentations.")
-        if len(all_batches) >= self._num_batches:
-            all_batches = all_batches[: self._num_batches]
-        self.sample_order = all_batches
+        self.sample_order = all_batches[: self._num_batches]
 
     def __iter__(self):
         self._create_batches()
@@ -191,7 +171,4 @@ class RNALengthBatcher:
         return iter(self.sample_order)
 
     def __len__(self):
-        if hasattr(self, "sample_order"):
-            return len(self.sample_order)
-        else:
-            return self._num_batches
+        return self._num_batches

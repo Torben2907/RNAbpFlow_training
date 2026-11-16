@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Trains (or finetunes) on one of the datasets, on the given GPUs. Output goes to trlog.txt.
+#
+#   ./run.sh --dataset {RNA3DB|CASP16|CASP15} --gpu 0,1,2,3 [--finetune --ckpt PATH]
 set -euo pipefail
 ulimit -n 65000
 
@@ -65,7 +68,7 @@ CMD=(python3 train.py
   data_cfg.csv_path="$CSV"
   experiment.wandb.project="$PROJ"
   experiment.wandb.name="$NAME"
-  experiment.num_devices="$NUM_DEVICES"
+  experiment.trainer.devices="$NUM_DEVICES"
   experiment.trainer.max_epochs="$MAX_EPOCHS"
 )
 

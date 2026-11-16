@@ -1,3 +1,5 @@
+"""Per-residue contact tokens: the discrete part of the model's input and output."""
+
 import torch
 from torch import Tensor
 
@@ -14,7 +16,11 @@ def make_contact_tokens(
     distance_threshold: float = 8.0,
     min_sequence_separation: int = 3,
 ) -> Tensor:
-
+    """
+    Returns one token per residue [N]: CONTACT if the residue is closer than
+    `distance_threshold` (in Angstrom) to any valid residue more than
+    `min_sequence_separation` positions away in sequence, NO_CONTACT otherwise.
+    """
     d = torch.cdist(c1_positions, c1_positions)
     N = d.shape[-1]
 
@@ -30,13 +36,11 @@ def make_contact_tokens(
 
     has_contact = contact.any(dim=-1)
 
-    tokens = torch.where(
+    return torch.where(
         has_contact,
         torch.full_like(has_contact, fill_value=CONTACT, dtype=torch.long),
         torch.full_like(has_contact, fill_value=NO_CONTACT, dtype=torch.long),
     )
-
-    return tokens
 
 
 def random_mask_tokens(

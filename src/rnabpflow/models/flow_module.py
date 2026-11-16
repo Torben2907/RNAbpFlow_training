@@ -1,234 +1,143 @@
 """
+Lightning module for training the flow model.
+
 Code adapted from
 https://github.com/microsoft/protein-frame-flow/blob/main/models/flow_module.py
 """
 
-import logging
-import os
+import contextlib
 import random
 import time
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn.functional as F
 from pytorch_lightning import LightningModule
 from torch import Tensor
 
 from rnabpflow.config.hydra_schema import HydraConfig
-
-# Only needed for the ss3D / ss2D losses.
-# from torch import nn
-# from rnabpflow.data import all_atom as rna_all_atom
 from rnabpflow.data import so3_utils
+from rnabpflow.data import utils as du
 from rnabpflow.data.contacts import random_mask_tokens
 from rnabpflow.data.interpolant import Interpolant
 from rnabpflow.models.flow_model import FlowModel
 
-torch.autograd.set_detect_anomaly(True)
+# The model predicts the first 9 torsion angles of each nucleotide.
+NUM_TORSIONS = 9
 
 
 class FlowModule(LightningModule):
-    def __init__(self, cfg: HydraConfig, folding_cfg=None):
+    def __init__(self, cfg: HydraConfig):
         super().__init__()
-        self._print_logger = logging.getLogger(__name__)
         self._exp_cfg = cfg.experiment
-        self._model_cfg = cfg.model
         self._interpolant_cfg = cfg.interpolant
 
-        # Set-up vector field prediction model
-        self.model = FlowModel(cfg.model)
-
-        # Set-up interpolant
+        self.model = FlowModel(cfg.model)  # predicts the clean structure x1
         self.interpolant = Interpolant(cfg.interpolant)
 
-        self._sample_write_dir = self._exp_cfg.checkpointer.dirpath
-        os.makedirs(self._sample_write_dir, exist_ok=True)
-
-        self.validation_epoch_metrics: list[pd.DataFrame] = []
-        self.validation_epoch_samples: list[Tensor] = []
         self.save_hyperparameters()
 
-    def on_train_start(self):
-
-        self._epoch_start_time = time.time()
-
-    def on_train_epoch_end(self):
-
-        trainer = self.trainer
-
-    def model_step(self, noisy_batch: dict[str, Tensor]) -> dict[str, Tensor]:
+    def corrupt_batch(
+        self, batch: dict[str, Tensor], t: Tensor | None = None
+    ) -> dict[str, Tensor]:
         """
-        Params:
-            noisy_batch (dict) : dictionary of tensors corresponding to corrupted Frame objects
+        Builds the model input for a clean batch: noises the frames to flow time `t`
+        (sampled uniformly if None) and masks a random subset of the contact tokens.
 
-        Remarks:
-            Computes the different core and auxiliary losses between ground truth and predicted backbones
-
-        Returns:
-            Dictionary of core and auxiliary losses
+        On top of the interpolant's output, the returned batch holds:
+            contact_tokens   : the partially masked tokens (model input)
+            contact_tokens_1 : the clean tokens (prediction target)
+            token_mask       : True where a token was masked
         """
-        training_cfg = self._exp_cfg.training
-        loss_mask = noisy_batch["res_mask"]
-        is_na_residue_mask = noisy_batch["is_na_residue_mask"]
+        self.interpolant.set_device(batch["res_mask"].device)
+        noisy_batch = self.interpolant.corrupt_batch(batch, t=t)
+
         tokens = noisy_batch["contact_tokens"]
-
         masked_tokens, token_mask = random_mask_tokens(
             tokens,
             noisy_batch["res_mask"],
             mask_probability=self._exp_cfg.training.token_mask_probability,
         )
-
+        noisy_batch["contact_tokens_1"] = tokens
         noisy_batch["contact_tokens"] = masked_tokens
         noisy_batch["token_mask"] = token_mask
+        return noisy_batch
 
+    def _self_condition(self, noisy_batch: dict[str, Tensor]) -> None:
+        """Adds the model's own x1 prediction to the batch as an extra input."""
+        with torch.no_grad():
+            model_sc = self.model(noisy_batch)
+        noisy_batch["trans_sc"] = model_sc["pred_trans"]
+
+    def model_step(
+        self, noisy_batch: dict[str, Tensor]
+    ) -> tuple[dict[str, Tensor], dict[str, Tensor]]:
+        """
+        Runs the model on a batch from `corrupt_batch` and computes the losses between
+        the predicted and the ground truth structure.
+
+        Returns:
+            The losses (per example, except for the batch-level `token_loss` and
+            `token_accuracy`) and the model output.
+        """
+        training_cfg = self._exp_cfg.training
+        loss_mask = noisy_batch["res_mask"]
         if training_cfg.min_plddt_mask is not None:
             plddt_mask = noisy_batch["res_plddt"] > training_cfg.min_plddt_mask
             loss_mask *= plddt_mask
-
         num_batch, num_res = loss_mask.shape
+        num_frames = torch.sum(loss_mask, dim=-1)
 
-        torsions_start_index = 0
-        torsions_end_index = 9
-        num_torsions = torsions_end_index - torsions_start_index
-
-        # C1index = [11]
-
-        # Ground truth labels
+        # Ground truth
         gt_trans_1 = noisy_batch["trans_1"]
         gt_rotmats_1 = noisy_batch["rotmats_1"]
-        gt_torsions_1 = noisy_batch["torsion_angles_sin_cos"][
-            :, :, torsions_start_index:torsions_end_index, :
-        ].reshape(num_batch, num_res, num_torsions * 2)
+        gt_torsions_1 = noisy_batch["torsion_angles_sin_cos"][:, :, :NUM_TORSIONS, :]
+        gt_tokens = noisy_batch["contact_tokens_1"]
+        token_mask = noisy_batch["token_mask"]
         rotmats_t = noisy_batch["rotmats_t"]
         gt_rot_vf = so3_utils.calc_rot_vf(rotmats_t, gt_rotmats_1.type(torch.float32))
 
-        # C1' atoms were only needed for the ss3D loss (experimental pair masks).
-        # gt_bb_atoms_all = rna_all_atom.to_atom23_rna(
-        #     gt_trans_1,
-        #     gt_rotmats_1,
-        #     noisy_batch["aatype"],
-        #     torsions=noisy_batch["torsion_angles_sin_cos"],
-        # )
-        #
-        # gt_bb_atoms2 = gt_bb_atoms_all[:, :, C1index]
-
-        # Timestep used for normalization.
+        # The vector field losses are scaled by 1 / (1 - t), clipped close to t = 1.
         t = noisy_batch["t"]
-        norm_scale = 1 - torch.min(
-            t[..., None], torch.tensor(training_cfg.t_normalize_clip)
-        )
+        norm_scale = 1 - torch.clamp(t[..., None], max=training_cfg.t_normalize_clip)
 
-        # Model output predictions.
+        # Predictions
         model_output: dict[str, Tensor] = self.model(noisy_batch)
         pred_trans_1 = model_output["pred_trans"]
         pred_rotmats_1 = model_output["pred_rotmats"]
         pred_torsions_1 = model_output["pred_torsions"].reshape(
-            num_batch, num_res, num_torsions * 2
+            num_batch, num_res, NUM_TORSIONS, 2
         )
         token_logits = model_output["token_logits"]
         pred_rots_vf = so3_utils.calc_rot_vf(rotmats_t, pred_rotmats_1)
 
-        # pred_bb_atoms_all = rna_all_atom.to_atom23_rna(
-        #     pred_trans_1,
-        #     pred_rotmats_1,
-        #     noisy_batch["aatype"],
-        #     torsions=model_output["pred_torsions"],
-        # )
-        #
-        # pred_bb_atoms2 = pred_bb_atoms_all[:, :, C1index]
-        #
-        # custom_pair_mask = noisy_batch["ssmask"]
-
-        # Translation VF loss
+        # Translation vector field loss
         trans_error = (
             (gt_trans_1 - pred_trans_1) / norm_scale * training_cfg.trans_scale
         )
-        loss_denom = torch.sum(loss_mask, dim=-1) * 3  # 3 frame atoms
         trans_loss = (
             training_cfg.translation_loss_weight
             * torch.sum(trans_error**2 * loss_mask[..., None], dim=(-1, -2))
-            / loss_denom
+            / (num_frames * 3)
         )
 
-        # Rotation VF loss
+        # Rotation vector field loss
         rots_vf_error = (gt_rot_vf - pred_rots_vf) / norm_scale
-        loss_denom = torch.sum(loss_mask, dim=-1) * 3  # 3 frame atoms
         rots_vf_loss = (
             training_cfg.rotation_loss_weights
             * torch.sum(rots_vf_error**2 * loss_mask[..., None], dim=(-1, -2))
-            / loss_denom
+            / (num_frames * 3)
         )
 
-        # Token loss
-        token_loss = F.cross_entropy(
-            token_logits[token_mask],
-            tokens[token_mask],
-        )
-
-        # Token accuracy
+        # Contact token loss and accuracy, on the masked tokens only
+        token_loss = F.cross_entropy(token_logits[token_mask], gt_tokens[token_mask])
         with torch.no_grad():
-            pred = token_logits.argmax(dim=-1)
-            token_accuracy = (pred[token_mask] == tokens[token_mask]).float().mean()
+            pred_tokens = token_logits.argmax(dim=-1)
+            token_accuracy = (
+                (pred_tokens[token_mask] == gt_tokens[token_mask]).float().mean()
+            )
 
-        self._log_scalar(
-            "train/token_accuracy", token_accuracy, on_step=True, batch_size=num_batch
-        )
-
-        # ss3D / ss2D losses depend on the experimental secondary structure maps
-        # (ssmask / ss) and are no longer used.
-        # gt_flat_atoms = gt_bb_atoms2.reshape([num_batch, num_res, 3])
-        # gt_pair_dists = torch.linalg.norm(
-        #     gt_flat_atoms[:, :, None, :] - gt_flat_atoms[:, None, :, :], dim=-1
-        # )
-        # pred_flat_atoms = pred_bb_atoms2.reshape([num_batch, num_res, 3])
-        # pred_pair_dists = torch.linalg.norm(
-        #     pred_flat_atoms[:, :, None, :] - pred_flat_atoms[:, None, :, :], dim=-1
-        # )
-        #
-        # flat_loss_mask = torch.tile(loss_mask[:, :, None], (1, 1, 1))
-        # flat_loss_mask = flat_loss_mask.reshape([num_batch, num_res])
-        # flat_res_mask = torch.tile(loss_mask[:, :, None], (1, 1, 1))
-        # flat_res_mask = flat_res_mask.reshape([num_batch, num_res])
-        #
-        # gt_pair_dists = gt_pair_dists * flat_loss_mask[..., None]
-        # pred_pair_dists = pred_pair_dists * flat_loss_mask[..., None]
-        #
-        # pair_dist = (gt_pair_dists - pred_pair_dists) ** 2
-        #
-        # pair_dist_mask1 = (
-        #     flat_loss_mask[..., None] * flat_res_mask[:, None, :]
-        # ) * custom_pair_mask[:, :, :, 0]
-        # pair_dist_mask2 = (
-        #     flat_loss_mask[..., None] * flat_res_mask[:, None, :]
-        # ) * custom_pair_mask[:, :, :, 1]
-        # pair_dist_mask3 = (
-        #     flat_loss_mask[..., None] * flat_res_mask[:, None, :]
-        # ) * custom_pair_mask[:, :, :, 2]
-        #
-        # ss3D_loss_1 = torch.sum(pair_dist * pair_dist_mask1, dim=(1, 2))
-        # ss3D_loss_2 = torch.sum(pair_dist * pair_dist_mask2, dim=(1, 2))
-        # ss3D_loss_3 = torch.sum(pair_dist * pair_dist_mask3, dim=(1, 2))
-        #
-        # ss3D_loss = (ss3D_loss_1 + ss3D_loss_2 + ss3D_loss_3) / 3
-        # ss3D_loss /= (
-        #     (torch.sum(pair_dist_mask1, dim=(1, 2)))
-        #     + (torch.sum(pair_dist_mask2, dim=(1, 2)))
-        #     + (torch.sum(pair_dist_mask3, dim=(1, 2)))
-        # )
-        #
-        # predicted_logits = model_output["pair_feat"]
-        # gtss = noisy_batch["ss"]
-        # bceloss = nn.BCEWithLogitsLoss(reduction="none")
-        #
-        # ss2dloss: Tensor = bceloss(predicted_logits, gtss)
-        # ss2dloss = ss2dloss.mean(dim=(1, 2))
-        # ss2dloss = ss2dloss.sum(dim=-1)
-
-        # Torsion angles loss
-        pred_torsions_1 = pred_torsions_1.reshape(num_batch, num_res, num_torsions, 2)
-        gt_torsions_1 = gt_torsions_1.reshape(num_batch, num_res, num_torsions, 2)
-        loss_denom = torch.sum(loss_mask, dim=-1) * num_torsions  # 9 torsion angles
+        # Torsion angle loss
         tors_loss = (
             training_cfg.tors_loss_scale
             * torch.sum(
@@ -236,113 +145,137 @@ class FlowModule(LightningModule):
                 * loss_mask[..., None],
                 dim=(-1, -2),
             )
-            / loss_denom
+            / (num_frames * NUM_TORSIONS)
         )
 
         se3_vf_loss = trans_loss + rots_vf_loss
-        # auxiliary_loss = (ss3D_loss + ss2dloss + tors_loss) * (
-        #     t[:, 0] > training_cfg.aux_loss_t_pass
-        # )
+        # The torsion loss only counts once the structure is mostly denoised.
         auxiliary_loss = tors_loss * (t[:, 0] > training_cfg.aux_loss_t_pass)
-        auxiliary_loss *= self._exp_cfg.training.aux_loss_weight
+        auxiliary_loss *= training_cfg.aux_loss_weight
 
         if torch.isnan(auxiliary_loss).any():
             print("NaN loss in aux_loss")
-            auxiliary_loss = torch.zeros_like(auxiliary_loss).to(se3_vf_loss.device)
+            auxiliary_loss = torch.zeros_like(auxiliary_loss)
 
         if torch.isnan(se3_vf_loss).any():
-            # raise ValueError('NaN loss encountered')
             print("NaN loss in se3_vf_loss")
-            se3_vf_loss = torch.zeros_like(se3_vf_loss).to(se3_vf_loss.device)
+            se3_vf_loss = torch.zeros_like(se3_vf_loss)
 
-        return {
+        losses = {
             "trans_loss": trans_loss,
-            # "ss3D_loss": ss3D_loss,
-            # "ss2D_loss": ss2dloss,
             "auxiliary_loss": auxiliary_loss,
             "rots_vf_loss": rots_vf_loss,
             "se3_vf_loss": se3_vf_loss,
             "torsion_loss": tors_loss,
             "token_loss": token_loss,
+            "token_accuracy": token_accuracy,
         }
+        return losses, model_output
 
-    def validation_step(self, batch: dict[str, Tensor], batch_idx: int):
+    def _total_loss(self, mean_losses: dict[str, Tensor]) -> Tensor:
+        """Combines the batch-mean losses into the optimized (and monitored) loss."""
+        training_cfg = self._exp_cfg.training
+        return (
+            mean_losses[training_cfg.loss]
+            + mean_losses["auxiliary_loss"]
+            + training_cfg.token_loss_weight * mean_losses["token_loss"]
+        )
+
+    def training_step(self, batch: dict[str, Tensor], batch_idx: int) -> Tensor:
         """
-        Generates samples and computes (average) local structural metrics
-        such as C4'-C4' distances, steric clashes, gyration radius.
+        Performs one iteration of SE(3) flow matching and returns the total training
+        loss, combined from the losses computed in `model_step`.
         """
+        step_start_time = time.time()
+        smoke_test_seed = self._exp_cfg.training.smoke_test_seed
+        if smoke_test_seed is not None:
+            random.seed(smoke_test_seed)
+            np.random.seed(smoke_test_seed)
+            torch.manual_seed(smoke_test_seed)
 
-        res_mask = batch["res_mask"]
-        is_na_residue_mask = batch["is_na_residue_mask"].bool()
-        self.interpolant.set_device(res_mask.device)
-        num_batch = res_mask.shape[0]
-        num_res = is_na_residue_mask.sum(dim=-1).max().item()
+        noisy_batch = self.corrupt_batch(batch)
+        if self._interpolant_cfg.self_condition and random.random() > 0.5:
+            self._self_condition(noisy_batch)
 
-        batch_metrics: list[Tensor] = []
+        batch_losses, _ = self.model_step(noisy_batch)
+        num_batch = batch_losses["torsion_loss"].shape[0]
+        mean_losses = {k: torch.mean(v) for k, v in batch_losses.items()}
 
-        batch_metrics_df = pd.DataFrame(batch_metrics)
-        self.validation_epoch_metrics.append(batch_metrics_df)
-
-    def on_validation_epoch_end(self):
-        if len(self.validation_epoch_samples) > 0:
-            self.logger.log_table(
-                key="valid/samples",
-                columns=["sample_path", "global_step", "RNA"],
-                data=self.validation_epoch_samples,
+        for name, value in mean_losses.items():
+            self._log_scalar(
+                f"train/{name}",
+                value,
+                on_step=True,
+                prog_bar=name == "token_accuracy",
+                batch_size=num_batch,
             )
-            self.validation_epoch_samples.clear()
+        self._log_scalar(
+            "train/t",
+            torch.mean(noisy_batch["t"]),
+            on_step=True,
+            prog_bar=False,
+            batch_size=num_batch,
+        )
 
-        def extract_scalar(val):
-            if isinstance(val, dict):
-                if len(val) == 1:
-                    return next(
-                        iter(val.values())
-                    )  # Return the first value in the dict
-                else:
-                    raise ValueError("Dictionary has more than one value; cannot log.")
-            elif isinstance(val, np.ndarray):
-                if val.size == 1:
-                    return val.item()  # Convert single-element array to scalar
-                else:
-                    raise ValueError("Array has more than one value; cannot log.")
-            elif isinstance(val, list):
-                if len(val) == 1:
-                    return val[0]  # Return the first item if list has one element
-                else:
-                    raise ValueError("List has more than one value; cannot log.")
-            elif isinstance(val, (int, float)):
-                return val  # Directly return scalar values
-            else:
-                raise TypeError(f"Unsupported type for metric value: {type(val)}")
+        step_time = time.time() - step_start_time
+        self._log_scalar("train/eps", num_batch / step_time)
 
-        # Assuming val_epoch_metrics is a DataFrame or similar structure
-        val_epoch_metrics = pd.concat(self.validation_epoch_metrics)
+        train_loss = self._total_loss(mean_losses)
+        self._log_scalar("loss", train_loss, on_step=True, batch_size=num_batch)
 
-        # Apply extract_scalar to all values before logging
-        processed_metrics = {
-            k: extract_scalar(v) for k, v in val_epoch_metrics.to_dict().items()
-        }
+        return train_loss
 
-        for metric_name, metric_val in processed_metrics.items():
-            scalar_val = extract_scalar(metric_val)
-            # print(f"Metric Name: {metric_name}, Metric Value: {metric_val}, Scalar Value: {scalar_val}, Type: {type(scalar_val)}")
-            if isinstance(
-                scalar_val, (int, float)
-            ):  # Check if the scalar value is valid
-                self._log_scalar(
-                    f"valid/{metric_name}",
-                    scalar_val,
-                    on_step=False,
-                    on_epoch=True,
-                    prog_bar=False,
-                    batch_size=len(val_epoch_metrics),
+    def validation_step(self, batch: dict[str, Tensor], batch_idx: int) -> None:
+        """
+        Computes the training losses on a held-out batch at each flow time in
+        `validation.t_values`, plus the RMSD between the model's one-step prediction
+        of x1 and the ground truth (frame origins, after Kabsch alignment).
+
+        Noise and token masks are fixed per batch by `validation.seed` (and dropout
+        is off in eval mode), so the metrics only change when the model does. Logged
+        per epoch as `valid/<metric>` (mean over the t grid) and
+        `valid/<metric>_t<t>` for the loss and the RMSD.
+        """
+        val_cfg = self._exp_cfg.validation
+        res_mask = batch["res_mask"]
+        device = res_mask.device
+        num_batch = res_mask.shape[0]
+
+        per_t_metrics: list[dict[str, Tensor]] = []
+        with _seeded_rng(val_cfg.seed + batch_idx, device):
+            for t_value in val_cfg.t_values:
+                t = torch.full((num_batch, 1), float(t_value), device=device)
+                noisy_batch = self.corrupt_batch(batch, t=t)
+
+                # Training self-conditions half of its steps; validation always does.
+                if self._interpolant_cfg.self_condition:
+                    self._self_condition(noisy_batch)
+
+                batch_losses, model_output = self.model_step(noisy_batch)
+                metrics = {k: torch.mean(v) for k, v in batch_losses.items()}
+                metrics["loss"] = self._total_loss(metrics)
+                metrics["x1_rmsd"] = torch.mean(
+                    _masked_kabsch_rmsd(
+                        model_output["pred_trans"], noisy_batch["trans_1"], res_mask
+                    )
                 )
-            else:
-                raise TypeError(
-                    f"Metric value for {metric_name} is not a scalar: {scalar_val}"
-                )
+                per_t_metrics.append(metrics)
 
-        self.validation_epoch_metrics.clear()
+                for name in ("loss", "x1_rmsd"):
+                    self._log_scalar(
+                        f"valid/{name}_t{t_value:g}",
+                        metrics[name],
+                        prog_bar=False,
+                        batch_size=num_batch,
+                    )
+
+        for name in per_t_metrics[0]:
+            self._log_scalar(
+                f"valid/{name}",
+                torch.stack([m[name] for m in per_t_metrics]).mean(),
+                prog_bar=name == "loss",
+                batch_size=num_batch,
+            )
 
     def _log_scalar(
         self,
@@ -373,64 +306,42 @@ class FlowModule(LightningModule):
             rank_zero_only=rank_zero_only,
         )
 
-    def training_step(self, batch, stage):
-        """
-        Performs one iteration of SE(3) flow matching and returns total training loss
-        using the core and auxiliary losses computed in `model_step`.
-        """
-        step_start_time = time.time()
-        smoke_test_seed = self._exp_cfg.training.get("smoke_test_seed")
-        if smoke_test_seed is not None:
-            random.seed(smoke_test_seed)
-            np.random.seed(smoke_test_seed)
-            torch.manual_seed(smoke_test_seed)
-        self.interpolant.set_device(batch["res_mask"].device)
-        noisy_batch = self.interpolant.corrupt_batch(batch)
-
-        # if self.global_step < 10:
-        #     print(
-        #         f"step={self.global_step}, "
-        #         f"t={noisy_batch['t'].detach().cpu().flatten().tolist()}"
-        #     )
-
-        if self._interpolant_cfg.self_condition and random.random() > 0.5:
-            with torch.no_grad():
-                model_sc = self.model(noisy_batch)
-                noisy_batch["trans_sc"] = model_sc["pred_trans"]
-
-        batch_losses = self.model_step(noisy_batch)
-        num_batch = batch_losses["torsion_loss"].shape[0]
-
-        total_losses = {k: torch.mean(v) for k, v in batch_losses.items()}
-
-        for k, v in total_losses.items():
-            self._log_scalar(
-                f"train/{k}", v, on_step=True, prog_bar=False, batch_size=num_batch
-            )
-
-        # Losses to track. Stratified across t.
-        t = torch.squeeze(noisy_batch["t"])
-        self._log_scalar(
-            "train/t",
-            torch.mean(t),
-            on_step=True,
-            prog_bar=False,
-            batch_size=num_batch,
-        )
-
-        step_time = time.time() - step_start_time
-        self._log_scalar("train/eps", num_batch / step_time)
-
-        train_loss = (
-            total_losses[self._exp_cfg.training.loss]
-            + total_losses["auxiliary_loss"]
-            + self._exp_cfg.training.token_loss_weight * total_losses["token_loss"]
-        )
-        self._log_scalar("loss", train_loss, on_step=True, batch_size=num_batch)
-
-        return train_loss
-
     def configure_optimizers(self):
         return torch.optim.AdamW(
             params=self.model.parameters(), **self._exp_cfg.optimizer
         )
+
+
+@contextlib.contextmanager
+def _seeded_rng(seed: int, device: torch.device):
+    """
+    Seeds torch, numpy and python RNGs for the duration of the block and restores
+    their previous states afterwards, so validation doesn't shift the training noise.
+    """
+    np_state = np.random.get_state()
+    py_state = random.getstate()
+    cuda_devices = [device] if device.type == "cuda" else []
+    with torch.random.fork_rng(devices=cuda_devices):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        try:
+            yield
+        finally:
+            np.random.set_state(np_state)
+            random.setstate(py_state)
+
+
+def _masked_kabsch_rmsd(pred: Tensor, gt: Tensor, mask: Tensor) -> Tensor:
+    """Per-example RMSD [B] between [B, N, 3] coordinates over `mask` after optimal superposition."""
+    mask = mask.float()
+    num_res = mask.sum(dim=-1).clamp(min=1)  # [B]
+
+    def center(x: Tensor) -> Tensor:
+        centroid = (x * mask[..., None]).sum(dim=1) / num_res[:, None]
+        return (x - centroid[:, None]) * mask[..., None]
+
+    pred_c, gt_c = center(pred.float()), center(gt.float())
+    pred_aligned, _, _ = du.batch_align_structures(pred_c, gt_c, mask=mask)
+    sq_dist = ((pred_aligned - gt_c) ** 2).sum(dim=-1) * mask
+    return torch.sqrt(sq_dist.sum(dim=-1) / num_res)

@@ -16,5 +16,4 @@ __pycache__/
 .mypy_cache
 
 /wandb/
-
-OLDReadme.txt
+trlog.txt

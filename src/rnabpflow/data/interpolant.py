@@ -1,3 +1,10 @@
+"""
+Noising process of the flow: interpolates frames between noise (t = 0) and data (t = 1).
+
+Code adapted from
+https://github.com/microsoft/protein-frame-flow/blob/main/data/interpolant.py
+"""
+
 import copy
 
 import torch
@@ -119,13 +126,16 @@ class Interpolant:
         )
         return _rots_diffuse_mask(rotmats_t, rotmats_1, res_mask)
 
-    def corrupt_batch(self, batch: dict[str, Tensor]) -> dict[str, Tensor]:
+    def corrupt_batch(
+        self, batch: dict[str, Tensor], t: Tensor | None = None
+    ) -> dict[str, Tensor]:
         """
         Params:
             batch (dict) : a dictionary where each key is a tensor name and each value is the corresponding tensor of Rigid objects (representing the RNA frames).
+            t (Tensor, optional) : [B, 1] flow times to corrupt to; sampled uniformly if None.
 
         Remarks:
-            This method takes in a clean ground truth batch (x_1) and adds returns the interpolated (noised) batch (x_t).
+            This method takes in a clean ground truth batch (x_1) and returns the interpolated (noised) batch (x_t).
 
         Returns:
             batch of corrupted/noisy/interpolated tensors
@@ -139,7 +149,8 @@ class Interpolant:
         num_batch, _ = res_mask.shape
 
         # get random timestep in [0, 1] for flow matching
-        t = self.sample_t(num_batch)[:, None]  # [B, 1]
+        if t is None:
+            t = self.sample_t(num_batch)[:, None]  # [B, 1]
         noisy_batch["t"] = t
 
         # apply corruptions to translations

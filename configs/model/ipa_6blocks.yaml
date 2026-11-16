@@ -29,5 +29,4 @@ ipa:
   seq_tfmr_num_heads: 4
   seq_tfmr_num_layers: 2
   num_blocks: 6
-  # ss: 3  # channels of the experimental secondary structure maps (no longer used)
   dropout: 0.1

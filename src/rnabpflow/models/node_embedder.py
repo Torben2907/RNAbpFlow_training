@@ -22,6 +22,7 @@ class NodeEmbedder(nn.Module):
         self.c_timestep_emb = self._cfg.c_timestep_emb
         self.token_embedding = nn.Embedding(NUM_TOKEN_STATES, module_cfg.c_token_emb)
 
+        # Position, timestep and contact token embeddings + the one-hot sequence (4)
         self.linear = nn.Linear(
             self._cfg.c_pos_emb + self._cfg.c_timestep_emb + 4 + self._cfg.c_token_emb,
             self.c_s,
@@ -36,8 +37,6 @@ class NodeEmbedder(nn.Module):
     def forward(
         self, timesteps: Tensor, mask: Tensor, onehot: Tensor, tokens: Tensor
     ) -> Tensor:
-        # s: [b]
-
         b, num_res, device = mask.shape[0], mask.shape[1], mask.device
 
         # [b, n_res, c_pos_emb]
@@ -52,14 +51,10 @@ class NodeEmbedder(nn.Module):
         token_emb = self.token_embedding(tokens)
         token_emb = token_emb * mask.unsqueeze(-1)
 
-        # [b, n_res, c_timestep_emb]
-
         input_feats = [
             pos_emb,
             onehot,
-            self.embed_t(
-                timesteps, mask
-            ),  # timesteps are between 0 and 1. Convert to integers.
+            self.embed_t(timesteps, mask),  # [b, n_res, c_timestep_emb]
             token_emb,
         ]
 

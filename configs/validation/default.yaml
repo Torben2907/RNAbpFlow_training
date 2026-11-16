@@ -1,0 +1,4 @@
+# Validation computes the training losses on held-out RNAs at a fixed grid of flow
+# times with fixed noise, plus the RMSD of the one-step prediction of x1.
+t_values: [0.1, 0.3, 0.5, 0.7, 0.9]
+seed: 0

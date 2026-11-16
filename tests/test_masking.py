@@ -9,5 +9,5 @@ def test_masking(config):
     masked, mask = random_mask_tokens(batch["contact_tokens"], batch["res_mask"])
     assert torch.all(masked[mask] == MASK)
     assert not torch.any(masked[~batch["res_mask"].bool()] == MASK)
-    # Since I inititalize using torch.rand() mean value should be around 0.15 (which it is)
-    # torch.testing.assert_close(mask.float().mean(), torch.tensor(0.15), rtol=1e-2, atol=1e-2)
+    # Unmasked tokens are left untouched.
+    assert torch.equal(masked[~mask], batch["contact_tokens"][~mask])

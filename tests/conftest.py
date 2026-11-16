@@ -13,7 +13,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 @pytest.fixture(scope="session")
 def config() -> HydraConfig:
     # config.yaml only holds a defaults list, so it must be composed by Hydra
-    with initialize_config_dir(config_dir=str(PROJECT_ROOT / "configs"), version_base=None):
+    with initialize_config_dir(
+        config_dir=str(PROJECT_ROOT / "configs"), version_base=None
+    ):
         cfg = compose(config_name="config")
     schema = OmegaConf.structured(HydraConfig)
     cfg = OmegaConf.merge(schema, cfg)

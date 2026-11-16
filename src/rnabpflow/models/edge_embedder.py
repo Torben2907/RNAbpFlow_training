@@ -22,8 +22,7 @@ class EdgeEmbedder(nn.Module):
         self.linear_s_p = nn.Linear(self.c_s, self.feat_dim)
         self.linear_relpos = nn.Linear(self.feat_dim, self.feat_dim)
 
-        # Experimental secondary structure maps (3 channels) are no longer an input.
-        # total_edge_feats = self.feat_dim * 3 + 3
+        # Both nodes' features (2 * feat_dim) + relative position (feat_dim)
         total_edge_feats = self.feat_dim * 3
 
         self.edge_embedder = nn.Sequential(
@@ -53,11 +52,20 @@ class EdgeEmbedder(nn.Module):
             .reshape([num_batch, num_res, num_res, -1])
         )
 
-    # def forward(self, s, t, sc_t, p_mask, ss):
     def forward(self, s, t, sc_t, p_mask):
+        """
+        Params:
+            s      : [B, N, c_s] node embeddings
+            t      : [B, N, 3] noisy translations (currently unused)
+            sc_t   : [B, N, 3] self-conditioning translations (currently unused)
+            p_mask : [B, N, N] pair mask
+
+        Returns:
+            [B, N, N, c_p] edge embeddings
+        """
         num_batch, num_res, _ = s.shape
 
-        p_i = self.linear_s_p(s)  # Converts the node feature Lx256 to Lx64
+        p_i = self.linear_s_p(s)  # [B, N, c_s] -> [B, N, feat_dim]
 
         cross_node_feats = self._cross_concat(p_i, num_batch, num_res)
 
@@ -65,7 +73,6 @@ class EdgeEmbedder(nn.Module):
 
         relpos_feats = self.embed_relpos(pos)
 
-        # all_edge_feats = torch.concat([cross_node_feats, relpos_feats, ss], dim=-1)
         all_edge_feats = torch.concat([cross_node_feats, relpos_feats], dim=-1)
 
         edge_feats = self.edge_embedder(all_edge_feats)

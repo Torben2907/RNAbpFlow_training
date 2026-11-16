@@ -23,10 +23,10 @@ class FlowModel(nn.Module):
         self._ipa_conf = model_conf.ipa
         self.dropout_rate = self._ipa_conf.dropout
 
-        # Replace lambda functions with regular methods
         self.node_embedder = NodeEmbedder(model_conf.node_features)
         self.edge_embedder = EdgeEmbedder(model_conf.edge_features)
 
+        # Predicts the contact token (contact / no contact) of each nucleotide.
         self.token_head = nn.Sequential(
             nn.Linear(self._ipa_conf.c_s, self._ipa_conf.c_s),
             nn.ReLU(),
@@ -80,10 +80,6 @@ class FlowModel(nn.Module):
             no_angles=9,
             epsilon=1e-12,
         )
-        # Pair head predicting the experimental secondary structure maps (ss2D loss).
-        # self.linear_pair = nn.Linear(
-        #     self._model_conf.edge_embed_size, self._ipa_conf.ss
-        # )
         self.ipa_dropout = nn.Dropout(self.dropout_rate)
 
     def rigids_ang_to_nm(self, x: Rigid) -> Rigid:
@@ -93,28 +89,19 @@ class FlowModel(nn.Module):
         return x.apply_trans_fn(lambda x: x * du.NM_TO_ANG_SCALE)
 
     def forward(self, input_feats: dict[str, Tensor]) -> dict[str, Tensor]:
+        """
+        Predicts the clean structure x1 from the noisy frames at flow time t, the
+        sequence and the (partially masked) contact tokens.
+        """
         node_mask = input_feats["res_mask"]
         edge_mask = node_mask[:, None] * node_mask[:, :, None]
         continuous_t = input_feats["t"]
         trans_t = input_feats["trans_t"]
         rotmats_t = input_feats["rotmats_t"]
         contact_tokens = input_feats["contact_tokens"]
-
-        # Experimental secondary structure maps are no longer an input; the model is
-        # conditioned on the (partially masked) contact tokens only.
-        # if "ss_pred" in input_feats:
-        #     ss = input_feats["ss_pred"]
-        # else:
-        #     ss = input_feats["ss"]
-
         onehot = input_feats["onehot"]
 
         # Initialize node and edge embeddings
-
-        # sin-cos positional embedding - Lx128
-        # Convert random timestapmp to embedding; Lx128
-        # Total 1xLx256
-        #
         init_node_embed = self.node_embedder(
             continuous_t, node_mask, onehot, contact_tokens
         )
@@ -123,11 +110,6 @@ class FlowModel(nn.Module):
         else:
             trans_sc = input_feats["trans_sc"]
 
-        # Edge embeddings are:
-        #
-        # init_edge_embed = self.edge_embedder(
-        #     init_node_embed, trans_t, trans_sc, edge_mask, ss
-        # )
         init_edge_embed = self.edge_embedder(
             init_node_embed, trans_t, trans_sc, edge_mask
         )
@@ -169,9 +151,8 @@ class FlowModel(nn.Module):
                 edge_embed = self.ipa_dropout(edge_embed)
                 edge_embed *= edge_mask[..., None]
 
-        # predict 8 torsions
+        # Predict the 9 torsion angles as (sin, cos) pairs
         _, pred_torsions = self.angle_pred_net(node_embed, init_node_embed)
-        # pair_feat = self.linear_pair(edge_embed)
 
         curr_rigids = self.rigids_nm_to_ang(curr_rigids)
         pred_trans = curr_rigids.get_trans()
@@ -183,7 +164,6 @@ class FlowModel(nn.Module):
             "pred_torsions": pred_torsions,
             "pred_trans": pred_trans,
             "pred_rotmats": pred_rotmats,
-            # "pair_feat": pair_feat,
             "token_logits": token_logits,
             "bb_frame": curr_rigids,
         }
