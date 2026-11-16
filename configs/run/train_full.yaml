@@ -15,6 +15,9 @@ experiment:
     # Validation runs at the end of every such epoch.
     max_steps: 120_000
     max_epochs: -1
+    # Anomaly detection makes a step about 7x slower (CPU-bound stack traces and
+    # NaN checks). Turn it back on to find the operation behind a NaN.
+    detect_anomaly: False
   checkpointer:
     monitor: valid/loss # keep the checkpoints with the lowest validation loss
   optimizer: 
