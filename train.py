@@ -22,7 +22,7 @@ from rnabpflow.data.pdb_na_datamodule_base import PDBNABaseDataModule
 from rnabpflow.models.flow_module import FlowModule
 
 log = eu.get_pylogger(__name__)
-torch.set_float32_matmul_precision("high")
+torch.set_float32_matmul_precision("medium")
 
 
 class Experiment:

@@ -266,7 +266,7 @@ class FlowModule(LightningModule):
             "token_loss": token_loss,
         }
 
-    def validation_step(self, batch: dict[str, Tensor], batch_idx):
+    def validation_step(self, batch: dict[str, Tensor], batch_idx: int):
         """
         Generates samples and computes (average) local structural metrics
         such as C4'-C4' distances, steric clashes, gyration radius.
@@ -378,7 +378,7 @@ class FlowModule(LightningModule):
         Performs one iteration of SE(3) flow matching and returns total training loss
         using the core and auxiliary losses computed in `model_step`.
         """
-        # step_start_time = time.time()
+        step_start_time = time.time()
         smoke_test_seed = self._exp_cfg.training.get("smoke_test_seed")
         if smoke_test_seed is not None:
             random.seed(smoke_test_seed)
@@ -418,8 +418,8 @@ class FlowModule(LightningModule):
             batch_size=num_batch,
         )
 
-        # step_time = time.time() - step_start_time
-        # self._log_scalar("train/eps", num_batch / step_time)
+        step_time = time.time() - step_start_time
+        self._log_scalar("train/eps", num_batch / step_time)
 
         train_loss = (
             total_losses[self._exp_cfg.training.loss]
