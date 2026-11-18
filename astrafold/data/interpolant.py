@@ -34,6 +34,16 @@ def _uniform_so3(num_batch, num_res, device):
     ).reshape(num_batch, num_res, 3, 3)
 
 
+def seeded_generators(seeds: list[int]) -> list[torch.Generator]:
+    """One CPU generator per sample, so a sample's noise depends only on its seed."""
+    return [torch.Generator().manual_seed(int(seed)) for seed in seeds]
+
+
+def draw_per_sample(generators, sample_fn, device) -> Tensor:
+    """Stacks `sample_fn(generator)` over the generators: [B, ...] on `device`."""
+    return torch.stack([sample_fn(g) for g in generators]).to(device)
+
+
 def _trans_diffuse_mask(trans_t, trans_1, diffuse_mask):
     return trans_t * diffuse_mask[..., None] + trans_1 * (1 - diffuse_mask[..., None])
 
@@ -195,6 +205,47 @@ class Interpolant:
 
         return so3_utils.geodesic_t(scaling * d_t, rotmats_1, rotmats_t)
 
+    def euler_step(
+        self,
+        d_t: float | Tensor,
+        t: float | Tensor,
+        model_out: dict[str, Tensor],
+        trans_t: Tensor,
+        rotmats_t: Tensor,
+    ) -> tuple[Tensor, Tensor]:
+        """
+        One Euler step of the flow from t to t + d_t towards the model's x1
+        prediction. `t` and `d_t` are scalars or [B, 1, 1] tensors (one flow time
+        per sample); t must be < 1.
+        """
+        trans = self._trans_euler_step(d_t, t, model_out["pred_trans"], trans_t)
+        rotmats = self._rots_euler_step(d_t, t, model_out["pred_rotmats"], rotmats_t)
+        return trans, rotmats
+
+    def sample_prior(
+        self, generators: list[torch.Generator], num_res: int, device: torch.device
+    ) -> tuple[Tensor, Tensor]:
+        """
+        Draws the frames at t = min_t, one sample per generator: centered Gaussian
+        translations [B, N, 3] (in Angstrom) and uniformly random rotations
+        [B, N, 3, 3].
+        """
+        trans = draw_per_sample(
+            generators, lambda g: torch.randn(num_res, 3, generator=g), device
+        )
+        trans = trans - trans.mean(dim=-2, keepdim=True)
+        trans = trans * du.NM_TO_ANG_SCALE
+        # Normalized Gaussian quaternions are uniform on SO(3).
+        quats = draw_per_sample(
+            generators, lambda g: torch.randn(num_res, 4, generator=g), device
+        )
+        rotmats = torch.tensor(
+            Rotation.from_quat(quats.cpu().numpy().reshape(-1, 4)).as_matrix(),
+            dtype=torch.float32,
+            device=device,
+        ).reshape(len(generators), num_res, 3, 3)
+        return trans, rotmats
+
     @torch.no_grad()
     def sample(
         self,
@@ -234,22 +285,12 @@ class Interpolant:
         device = onehot.device
         self.set_device(device)
         num_batch, num_res = len(seeds), onehot.shape[0]
-        generators = [torch.Generator().manual_seed(int(seed)) for seed in seeds]
+        generators = seeded_generators(seeds)
 
         def draw(sample_fn) -> Tensor:
-            return torch.stack([sample_fn(g) for g in generators]).to(device)
+            return draw_per_sample(generators, sample_fn, device)
 
-        # Prior: centered Gaussian translations and uniformly random rotations.
-        trans_t = draw(lambda g: torch.randn(num_res, 3, generator=g))
-        trans_t = trans_t - trans_t.mean(dim=-2, keepdim=True)
-        trans_t = trans_t * du.NM_TO_ANG_SCALE
-        # Normalized Gaussian quaternions are uniform on SO(3).
-        quats = draw(lambda g: torch.randn(num_res, 4, generator=g)).cpu().numpy()
-        rotmats_t = torch.tensor(
-            Rotation.from_quat(quats.reshape(-1, 4)).as_matrix(),
-            dtype=torch.float32,
-            device=device,
-        ).reshape(num_batch, num_res, 3, 3)
+        trans_t, rotmats_t = self.sample_prior(generators, num_res, device)
         tokens = torch.full((num_batch, num_res), MASK, device=device)
 
         batch = {
@@ -272,9 +313,8 @@ class Interpolant:
                 batch["trans_sc"] = model_out["pred_trans"]
 
             d_t = t_2 - t_1
-            trans_t = self._trans_euler_step(d_t, t_1, model_out["pred_trans"], trans_t)
-            rotmats_t = self._rots_euler_step(
-                d_t, t_1, model_out["pred_rotmats"], rotmats_t
+            trans_t, rotmats_t = self.euler_step(
+                d_t, t_1, model_out, trans_t, rotmats_t
             )
             tokens = unmask_tokens(
                 tokens,

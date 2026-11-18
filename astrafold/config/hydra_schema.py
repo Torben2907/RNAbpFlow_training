@@ -1,6 +1,6 @@
 """Typed schema of the Hydra config in configs/."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from omegaconf import MISSING
@@ -208,6 +208,18 @@ class HydraConfig:
 
 
 @dataclass
+class HybridSamplerConfig:
+    """Options of the hybrid sampler (astrafold/data/hybrid_sampler.py)."""
+
+    # eps: a contact token is revealed once its probability is >= 1 - eps.
+    confidence_tolerance: float = 0.1
+    # Most tokens revealed per trajectory; 1 reveals one token per restart.
+    tokens_per_round: int = 1
+    # Share of the tokens remasked for the self-consistency score.
+    remask_fraction: float = 1.0
+
+
+@dataclass
 class InferenceConfig:
     """Schema of configs/inference.yaml (used by inference.py, not by training)."""
 
@@ -221,6 +233,10 @@ class InferenceConfig:
     batch_size: int = MISSING
     # Steps of the sampler; null uses interpolant.sampling.num_timesteps of the checkpoint.
     num_timesteps: int | None = None
+    # flow: one trajectory that reveals tokens along the way; hybrid: restart the
+    # flow after every revealed token and score the samples by self-consistency.
+    sampler: str = "flow"
+    hybrid: HybridSamplerConfig = field(default_factory=HybridSamplerConfig)
     # Sample i is generated from seed + i, whatever the batch size.
     seed: int = MISSING
     output_format: str = MISSING  # pdb | mmcif | both

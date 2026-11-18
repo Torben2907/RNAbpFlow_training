@@ -7,7 +7,8 @@ from scipy.spatial.transform import Rotation
 
 from astrafold.config.hydra_schema import HydraConfig
 from astrafold.data.pdb_na_datamodule_base import PDBNABaseDataModule
-from astrafold.models.flow_module import FlowModule, _masked_kabsch_rmsd
+from astrafold.metrics import kabsch_rmsd
+from astrafold.models.flow_module import FlowModule
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VAL_CSV = PROJECT_ROOT / "metadata" / "RNA3DB_val.csv"
@@ -21,12 +22,10 @@ def test_kabsch_rmsd_is_invariant_to_rigid_motion():
     mask[1, 15:] = 0
     moved[1, 15:] = 1000.0  # padded positions must be ignored
 
-    assert torch.allclose(
-        _masked_kabsch_rmsd(moved, gt, mask), torch.zeros(2), atol=1e-3
-    )
+    assert torch.allclose(kabsch_rmsd(moved, gt, mask), torch.zeros(2), atol=1e-3)
 
     noisy = gt + torch.randn_like(gt)
-    assert (_masked_kabsch_rmsd(noisy, gt, torch.ones(2, 20)) > 0.1).all()
+    assert (kabsch_rmsd(noisy, gt, torch.ones(2, 20)) > 0.1).all()
 
 
 @pytest.fixture(scope="module")

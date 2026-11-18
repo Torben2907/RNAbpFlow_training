@@ -7,7 +7,7 @@ The model is an SE(3) flow matching network for RNA backbones. It takes the nois
 nucleotide frames, the sequence and a partially masked set of per-nucleotide contact
 tokens, and predicts the clean structure together with the masked tokens.
 
-The repository covers both sides:
+The repository covers:
 
 - **Training** (`train.py`): learns the model from experimental RNA structures and
   validates it on a held-out split.
@@ -171,6 +171,7 @@ Inference runs on a GPU if one is available and also works on the CPU, only slow
 | `num_samples` | 10 | Structures per sequence |
 | `batch_size` | 10 | Samples generated in one forward pass |
 | `num_timesteps` | from the checkpoint (50) | Steps of the sampler |
+| `sampler` | `flow` | `flow` or `hybrid` (see [Hybrid sampler](#hybrid-sampler)) |
 | `seed` | 42 | Sample `i` is generated from `seed + i`, whatever the batch size |
 | `output_format` | `pdb` | `pdb`, `mmcif` or `both` |
 | `device` | `auto` | `auto` (GPU if available), `cpu`, `cuda` or `cuda:<id>` |
@@ -179,6 +180,39 @@ The sampler starts from random frames and fully masked contact tokens. It integr
 the frames from noise to data with Euler steps; in every step the model also predicts
 the contact tokens, and a share of the masked ones is revealed, so that all tokens are
 known when the flow reaches the data.
+
+### Hybrid sampler
+
+`sampler=hybrid` synchronizes the discrete tokens with the continuous flow
+(`astrafold/data/hybrid_sampler.py`). It reveals one contact token at a time and
+restarts the flow from the same initial noise after every reveal:
+
+1. Starting from the noise, the frames are integrated only until the model predicts a
+   masked token with probability `>= 1 - confidence_tolerance`. That token is
+   revealed. A trajectory that reaches t = 1 without a confident token reveals its
+   most confident one anyway; these are counted as `num_forced`.
+2. Step 1 repeats from the same noise, now with one more token known, until all
+   tokens are revealed.
+3. A final trajectory, given all tokens, integrates the noise to the structure that
+   is written out.
+4. A share (`remask_fraction`) of the tokens is masked again. The self-consistency
+   score is the sum of the log probabilities with which the model recovers them from
+   the final structure. It is at most 0, and higher is better.
+
+`<output_dir>/<record id>/scores.csv` lists the samples with their scores, best first.
+The hybrid sampler needs more forward passes than `flow`: about one restart per
+nucleotide, each a few steps long. `hybrid.tokens_per_round` reveals up to that many
+confident tokens per restart.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `hybrid.confidence_tolerance` | 0.1 | ε: reveal a token once its probability is `>= 1 - ε` |
+| `hybrid.tokens_per_round` | 1 | Most tokens revealed per restart |
+| `hybrid.remask_fraction` | 1.0 | Share of tokens remasked for the score |
+
+```shell
+python3 inference.py ckpt_path=... fasta_path=... sampler=hybrid hybrid.confidence_tolerance=0.05
+```
 
 The same is available from Python:
 
@@ -235,7 +269,8 @@ scripts/make_val_split.py creates the train/validation split
 astrafold/                 the Python package
   config/                 typed config schema
   data/                   dataset, batching, interpolant (noising and sampling),
-                          contact tokens, sequence features, PDB/mmCIF output
+                          hybrid sampler, contact tokens, sequence features,
+                          PDB/mmCIF output
   models/                 network (flow_model.py) and Lightning module (flow_module.py)
   inference.py            sampler that turns a checkpoint and a sequence into structures
 tests/

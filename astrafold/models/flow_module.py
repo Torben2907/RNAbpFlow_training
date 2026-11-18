@@ -17,9 +17,9 @@ from torch import Tensor
 
 from astrafold.config.hydra_schema import HydraConfig
 from astrafold.data import so3_utils
-from astrafold.data import utils as du
 from astrafold.data.contacts import random_mask_tokens
 from astrafold.data.interpolant import Interpolant
+from astrafold.metrics import kabsch_rmsd
 from astrafold.models.flow_model import FlowModel
 
 # The model predicts the first 9 torsion angles of each nucleotide.
@@ -255,7 +255,7 @@ class FlowModule(LightningModule):
                 metrics = {k: torch.mean(v) for k, v in batch_losses.items()}
                 metrics["loss"] = self._total_loss(metrics)
                 metrics["x1_rmsd"] = torch.mean(
-                    _masked_kabsch_rmsd(
+                    kabsch_rmsd(
                         model_output["pred_trans"], noisy_batch["trans_1"], res_mask
                     )
                 )
@@ -330,18 +330,3 @@ def _seeded_rng(seed: int, device: torch.device):
         finally:
             np.random.set_state(np_state)
             random.setstate(py_state)
-
-
-def _masked_kabsch_rmsd(pred: Tensor, gt: Tensor, mask: Tensor) -> Tensor:
-    """Per-example RMSD [B] between [B, N, 3] coordinates over `mask` after optimal superposition."""
-    mask = mask.float()
-    num_res = mask.sum(dim=-1).clamp(min=1)  # [B]
-
-    def center(x: Tensor) -> Tensor:
-        centroid = (x * mask[..., None]).sum(dim=1) / num_res[:, None]
-        return (x - centroid[:, None]) * mask[..., None]
-
-    pred_c, gt_c = center(pred.float()), center(gt.float())
-    pred_aligned, _, _ = du.batch_align_structures(pred_c, gt_c, mask=mask)
-    sq_dist = ((pred_aligned - gt_c) ** 2).sum(dim=-1) * mask
-    return torch.sqrt(sq_dist.sum(dim=-1) / num_res)

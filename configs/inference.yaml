@@ -6,6 +6,11 @@ output_dir: predictions # structures go to <output_dir>/<FASTA record id>/Sample
 num_samples: 10 # structures per sequence
 batch_size: 10 # samples generated in one forward pass
 num_timesteps: null # sampler steps; null = interpolant.sampling.num_timesteps of the checkpoint
+sampler: flow # flow | hybrid (restart the flow after every revealed contact token)
+hybrid: # only used by sampler=hybrid
+  confidence_tolerance: 0.1 # reveal a token once its probability is >= 1 - confidence_tolerance
+  tokens_per_round: 1 # most tokens revealed per trajectory
+  remask_fraction: 1.0 # share of tokens remasked for the self-consistency score
 seed: 42 # sample i is generated from seed + i, whatever the batch size
 output_format: pdb # pdb | mmcif | both
 device: auto # auto (GPU if available) | cpu | cuda | cuda:<id>
