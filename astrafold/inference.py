@@ -2,7 +2,7 @@
 Samples all-atom RNA structures for sequences with a trained checkpoint.
 
 Adapted from the sampler of the original RNAbpFlow inference code
-(https://github.com/Torben2907/RNAbpFlow_inference).
+(https://github.com/Bhattacharya-Lab/RNAbpFlow).
 """
 
 import csv

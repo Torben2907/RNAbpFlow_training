@@ -283,7 +283,7 @@ Large parts of the code are adapted from
 [MMDiff](https://github.com/Profluent-Internships/MMDiff) and
 [OpenFold](https://github.com/aqlaboratory/openfold). The sampler and the structure
 output are adapted from the
-[RNAbpFlow inference code](https://github.com/Torben2907/RNAbpFlow_inference), the PDB
+[RNAbpFlow](https://github.com/Bhattacharya-Lab/RNAbpFlow) inference code, the PDB
 writer from [NuFold](https://github.com/kiharalab/NuFold).
 
 ## License
