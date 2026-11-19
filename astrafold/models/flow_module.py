@@ -153,13 +153,19 @@ class FlowModule(LightningModule):
         auxiliary_loss = tors_loss * (t[:, 0] > training_cfg.aux_loss_t_pass)
         auxiliary_loss *= training_cfg.aux_loss_weight
 
+        # Zero NaN losses with torch.where rather than zeros_like: the result keeps its
+        # autograd graph, so every parameter still gets a gradient and DDP does not fail
+        # on "unused parameters". Any NaN gradients are then caught by
+        # on_before_optimizer_step.
         if torch.isnan(auxiliary_loss).any():
             print("NaN loss in aux_loss")
-            auxiliary_loss = torch.zeros_like(auxiliary_loss)
+            auxiliary_loss = torch.where(
+                torch.isnan(auxiliary_loss), 0.0, auxiliary_loss
+            )
 
         if torch.isnan(se3_vf_loss).any():
             print("NaN loss in se3_vf_loss")
-            se3_vf_loss = torch.zeros_like(se3_vf_loss)
+            se3_vf_loss = torch.where(torch.isnan(se3_vf_loss), 0.0, se3_vf_loss)
 
         losses = {
             "trans_loss": trans_loss,
@@ -224,6 +230,28 @@ class FlowModule(LightningModule):
         self._log_scalar("loss", train_loss, on_step=True, batch_size=num_batch)
 
         return train_loss
+
+    def on_before_optimizer_step(self, optimizer: torch.optim.Optimizer) -> None:
+        """
+        Skips the update when any gradient is non-finite, so one bad step cannot turn
+        all weights into NaN. Runs after the DDP all-reduce, so every rank sees the
+        same gradients and makes the same decision. The gradients are zeroed rather
+        than the step dropped, so AdamW still applies its decay and momentum.
+        """
+        grads = [p.grad for p in self.parameters() if p.grad is not None]
+        finite = torch.stack([torch.isfinite(g).all() for g in grads]).all()
+        if not finite:
+            print(f"Non-finite gradients at step {self.global_step}: update skipped")
+            for g in grads:
+                g.zero_()
+        self.log(
+            "train/skipped_steps",
+            (~finite).float(),
+            on_step=False,
+            on_epoch=True,
+            reduce_fx="sum",
+            sync_dist=False,
+        )
 
     def validation_step(self, batch: dict[str, Tensor], batch_idx: int) -> None:
         """

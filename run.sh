@@ -2,12 +2,14 @@
 # Trains (or finetunes) on one of the datasets, on the given GPUs. Output goes to trlog.txt.
 #
 #   ./run.sh --dataset {RNA3DB|CASP16|CASP15} --gpu 0,1,2,3 [--finetune --ckpt PATH]
+#   ./run.sh --dataset CASP15 --gpu 0,1,2,3 --resume ckpt/train/CASP15/last.ckpt
 set -euo pipefail
 ulimit -n 65000
 
 DATASET=""
 GPU=""
 CKPT=""
+RESUME=""
 FINETUNE=false
 
 TRAIN_EPOCHS=1500
@@ -20,6 +22,7 @@ while [[ $# -gt 0 ]]; do
     --gpu)      GPU="$2"; shift 2 ;;
     --ckpt)     CKPT="$2"; shift 2 ;;
     --finetune) FINETUNE=true; shift ;;
+    --resume)   RESUME="$2"; shift 2 ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
@@ -70,11 +73,16 @@ CMD=(python3 train.py
   experiment.wandb.name="$NAME"
   experiment.trainer.devices="$NUM_DEVICES"
   experiment.trainer.max_epochs="$MAX_EPOCHS"
+  # ~7x faster steps; set to True to locate the op behind a NaN
+  experiment.trainer.detect_anomaly=False
 )
 
 if [[ "$FINETUNE" == "true" ]]; then
   [[ -n "$CKPT" ]] || { echo "--finetune requires --ckpt PATH"; exit 1; }
   CMD+=(experiment.finetune=true "experiment.warm_start=\"${CKPT}\"" experiment.optimizer.lr="$FT_LR")
+elif [[ -n "$RESUME" ]]; then
+  # Continues the run in place: weights, optimizer state, epoch and step count
+  CMD+=(experiment.finetune=false "experiment.warm_start=\"${RESUME}\"")
 else
   CMD+=(experiment.finetune=false experiment.warm_start=null)
 fi
