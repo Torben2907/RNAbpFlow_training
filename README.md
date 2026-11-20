@@ -266,7 +266,7 @@ inference.py              inference entry point
 run.sh                    wrapper for the RNA3DB / CASP15 / CASP16 runs
 configs/                  Hydra config groups and presets
 scripts/make_val_split.py creates the train/validation split
-astrafold/                 the Python package
+astrafold/                the Python package
   config/                 typed config schema
   data/                   dataset, batching, interpolant (noising and sampling),
                           hybrid sampler, contact tokens, sequence features,
