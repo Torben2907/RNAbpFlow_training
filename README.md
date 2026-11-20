@@ -316,24 +316,24 @@ created, the benchmark tests until the CASP15 natives have been downloaded.
 ## Project layout
 
 ```
-train.py                  training entry point
-inference.py              inference entry point
-run.sh                    wrapper for the RNA3DB / CASP15 / CASP16 runs
-configs/                  Hydra config groups and presets
-scripts/make_val_split.py creates the train/validation split
-scripts/compare_samplers.py flow vs hybrid sampler on held-out RNAs or a benchmark
-scripts/usalign_eval.py   US-align scores of the structures saved by compare_samplers
-scripts/download_casp15.sh downloads the CASP15 native structures
+train.py                        training entry point
+inference.py                    inference entry point
+run.sh                          wrapper for the RNA3DB / CASP15 / CASP16 runs
+configs/                        Hydra config groups and presets
+scripts/make_val_split.py       creates the train/validation split
+scripts/compare_samplers.py     flow vs hybrid sampler on held-out RNAs or a benchmark
+scripts/usalign_eval.py         US-align scores of the structures saved by compare_samplers
+scripts/download_casp15.sh      downloads the CASP15 native structures
 scripts/download_rna3db_test.py downloads the RNA3DB test native structures
-benchmarks/CASP15/        CASP15 test sequences (natives: downloaded, not versioned)
-benchmarks/RNA3DB/        RNA3DB test sequences (natives: downloaded, not versioned)
-astrafold/                the Python package
-  config/                 typed config schema
-  data/                   dataset, batching, interpolant (noising and sampling),
-                          hybrid sampler, contact tokens, sequence features,
-                          PDB/mmCIF output
-  models/                 network (flow_model.py) and Lightning module (flow_module.py)
-  inference.py            sampler that turns a checkpoint and a sequence into structures
+benchmarks/CASP15/              CASP15 test sequences (natives: downloaded, not versioned)
+benchmarks/RNA3DB/              RNA3DB test sequences (natives: downloaded, not versioned)
+astrafold/                      the Python package
+  config/                       typed config schema
+  data/                         dataset, batching, interpolant (noising and sampling),
+                                hybrid sampler, contact tokens, sequence features,
+                                PDB/mmCIF output
+  models/                       network (flow_model.py) and Lightning module (flow_module.py)
+  inference.py                  sampler that turns a checkpoint and a sequence into structures
 tests/
 ```
 
