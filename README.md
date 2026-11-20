@@ -262,6 +262,23 @@ separately, against the best one. `usalign_eval.py` needs
 [US-align](https://github.com/pylelab/USalign) (`--usalign PATH`, the `USALIGN`
 environment variable, or `USalign` on the `PATH`).
 
+## RNA3DB benchmark
+
+`benchmarks/RNA3DB/RNA3DB_test.fasta` holds the 48 test chains of the RNA3DB
+2024-04-26 release used by RNAbpFlow, with the sequences from RNA3DB's `split.json`
+(the unknown first nucleotide `N` of `7k16_P` is dropped). These chains are RNA3DB's
+held-out *test* set; `metadata/RNA3DB_val.csv` is a validation split of the training
+chains (see [Train/validation split](#trainvalidation-split)). Download the natives
+from the RCSB PDB, saved as single-chain mmCIF files:
+
+```shell
+python3 scripts/download_rna3db_test.py
+```
+
+Then run the same commands as for CASP15, with `--fasta
+benchmarks/RNA3DB/RNA3DB_test.fasta --natives benchmarks/RNA3DB/natives` and an
+RNA3DB checkpoint.
+
 ## Configuration
 
 The config is composed by [Hydra](https://hydra.cc) from the groups in `configs/`.
@@ -307,7 +324,9 @@ scripts/make_val_split.py creates the train/validation split
 scripts/compare_samplers.py flow vs hybrid sampler on held-out RNAs or a benchmark
 scripts/usalign_eval.py   US-align scores of the structures saved by compare_samplers
 scripts/download_casp15.sh downloads the CASP15 native structures
+scripts/download_rna3db_test.py downloads the RNA3DB test native structures
 benchmarks/CASP15/        CASP15 test sequences (natives: downloaded, not versioned)
+benchmarks/RNA3DB/        RNA3DB test sequences (natives: downloaded, not versioned)
 astrafold/                the Python package
   config/                 typed config schema
   data/                   dataset, batching, interpolant (noising and sampling),

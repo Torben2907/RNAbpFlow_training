@@ -7,9 +7,11 @@ have several native conformations or chains. Each native chain is therefore mapp
 onto the target sequence by a global sequence alignment, and residues that are
 missing from the native are masked out.
 
-Natives of target <id> are found as <natives_dir>/<id>*.pdb and
-<natives_dir>/<id>/*.pdb, sorted by name; the first is the primary native. Of each
-file the first chain containing nucleotides is used (one chain is predicted).
+Natives of target <id> are found as <natives_dir>/<id>*.{pdb,cif} and
+<natives_dir>/<id>/*.{pdb,cif}, sorted by name; the first is the primary native. Of
+each file the first chain containing nucleotides is used (one chain is predicted), so
+natives taken from multi-chain entries should be saved as single-chain files (see
+scripts/download_rna3db_test.py).
 """
 
 from dataclasses import dataclass, field
@@ -22,6 +24,7 @@ from Bio import Align
 from astrafold.data.sequence import read_fasta
 
 NUCLEOTIDES = "ACGU"
+NATIVE_EXTENSIONS = (".pdb", ".cif")
 
 
 @dataclass
@@ -104,9 +107,14 @@ def map_native(sequence: str, path: Path, min_identity: float = 0.9) -> Native:
 
 
 def find_native_files(natives_dir: Path, name: str) -> list[Path]:
-    files = list(natives_dir.glob(f"{name}*.pdb")) + list(
-        (natives_dir / name).glob("*.pdb")
-    )
+    files = [
+        f
+        for ext in NATIVE_EXTENSIONS
+        for f in [
+            *natives_dir.glob(f"{name}*{ext}"),
+            *(natives_dir / name).glob(f"*{ext}"),
+        ]
+    ]
     return sorted(set(files), key=lambda p: p.name)
 
 
