@@ -2,14 +2,27 @@
 Split a metadata CSV (by default metadata/RNA3DB_train.csv) into a training and a
 held-out validation CSV.
 
-RNA3DB groups its chains into components, but the component file from the release is
-not available here, so this script builds a stand-in: chains are clustered so that
-near-identical RNAs never end up on both sides of the split. Two chains are linked if
+RNA3DB (2024-04-26 release, the one used by RNAbpFlow) splits its chains into a train
+and a test set only; its split.json has an empty valid_set. The validation set
+therefore has to come out of the RNA3DB train set, and RNA3DB's own grouping does not
+help with that:
+  - its sequence clusters: the 560 chains of RNA3DB_train.csv are one representative
+    each of 560 different clusters, so there is nothing left to group;
+  - its components (the unit of its train/test split): one component holds 454 of the
+    560 chains, so a component-level split would either move most of the data to
+    validation or leave only a few small, unstratified families there.
+
+So this script clusters the chains itself, so that near-identical RNAs never end up
+on both sides of the split. Two chains are linked if
   - they come from the same PDB entry, or
   - their sequences share most of their k-mers (overlap coefficient
     |A & B| / min(|A|, |B|) >= --kmer-overlap, on the sets of k-mers).
 Linked chains are merged into clusters (connected components), and whole clusters are
-assigned to the validation set.
+assigned to the validation set. With the defaults this gives 296 clusters, nested
+within the RNA3DB components (99.4% of the linked pairs share a component). Most
+validation chains thus share a component with training chains: validation measures
+generalization to new sequences of known RNA families, while the RNA3DB test set holds
+out whole components, so expect the validation loss to be optimistic relative to it.
 
 The split is stratified by length: rows are binned into length quantiles and each bin
 contributes about --val-fraction of its rows. Clusters larger than a bin's remaining

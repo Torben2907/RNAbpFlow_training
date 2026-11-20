@@ -82,6 +82,11 @@ Chains from the same PDB entry, or with near-identical sequences (5-mer overlap 
 least 0.7), always end up on the same side of the split. The split is stratified by
 length and reproducible (`--seed`). See `--help` for all options.
 
+RNA3DB itself only provides a train/test split, and its own clusters and components
+can't be used for a validation split of `RNA3DB_train.csv`. The script's docstring
+explains why, and why the validation loss is expected to be optimistic relative to the
+RNA3DB test set.
+
 ## Training
 
 ```shell
