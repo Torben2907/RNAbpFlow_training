@@ -224,6 +224,39 @@ result = sampler.sample("GGACUUCGGUCC", seeds=[0, 1])
 result["atom_positions"]  # [2, 12, 28, 3], in Angstrom
 ```
 
+## CASP15 benchmark
+
+`benchmarks/CASP15/CASP15_test.fasta` holds the 10 CASP15 RNA targets of the
+RNAbpFlow benchmark (test list from the
+[RNAbpFlow Zenodo record](https://doi.org/10.5281/zenodo.18305861)). The native
+structures come from the CASP prediction center and are not versioned; download them
+(checksum-verified) with
+
+```shell
+scripts/download_casp15.sh
+```
+
+Then sample every target with each sampler, score the samples against the natives
+and save the structures, one shard per GPU:
+
+```shell
+for i in 0 1 2 3; do
+  python3 scripts/compare_samplers.py run --ckpt path/to/model.ckpt \
+    --out results/casp15 --fasta benchmarks/CASP15/CASP15_test.fasta \
+    --natives benchmarks/CASP15/natives --save-structures \
+    --hybrid-eps 0.1 0.05 --num-samples 10 --shard $i --num-shards 4 --device cuda:$i &
+done; wait
+python3 scripts/compare_samplers.py summarize --out results/casp15
+python3 scripts/usalign_eval.py --out results/casp15
+```
+
+The natives are mapped onto the target sequences by sequence alignment, which handles
+unresolved residues and shifted numbering. Targets with several native conformations
+or models (R1136, R1138, R1149, R1156) are scored against the first one and,
+separately, against the best one. `usalign_eval.py` needs
+[US-align](https://github.com/pylelab/USalign) (`--usalign PATH`, the `USALIGN`
+environment variable, or `USalign` on the `PATH`).
+
 ## Configuration
 
 The config is composed by [Hydra](https://hydra.cc) from the groups in `configs/`.
@@ -256,7 +289,7 @@ python3 -m pytest
 
 The tests need the data and `pytest`, and run on the CPU. They cover training,
 validation and inference. The validation tests are skipped until the split has been
-created.
+created, the benchmark tests until the CASP15 natives have been downloaded.
 
 ## Project layout
 
@@ -266,6 +299,10 @@ inference.py              inference entry point
 run.sh                    wrapper for the RNA3DB / CASP15 / CASP16 runs
 configs/                  Hydra config groups and presets
 scripts/make_val_split.py creates the train/validation split
+scripts/compare_samplers.py flow vs hybrid sampler on held-out RNAs or a benchmark
+scripts/usalign_eval.py   US-align scores of the structures saved by compare_samplers
+scripts/download_casp15.sh downloads the CASP15 native structures
+benchmarks/CASP15/        CASP15 test sequences (natives: downloaded, not versioned)
 astrafold/                the Python package
   config/                 typed config schema
   data/                   dataset, batching, interpolant (noising and sampling),

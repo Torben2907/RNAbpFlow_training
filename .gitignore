@@ -4,6 +4,8 @@
 /Feature
 /metadata
 /predictions
+# benchmark structures are downloaded, not versioned (scripts/download_casp15.sh)
+/benchmarks/*/natives/
 
 __pycache__/
 
